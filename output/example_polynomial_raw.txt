@@ -1,0 +1,19 @@
+% Rational Inequality Solver Results
+% Generated on 2025-07-25 04:19:35
+% Copy-paste ready LaTeX
+
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\begin{document}
+
+% Case 1
+\begin{align}
+\text{Case 1:} \quad
+& -\infty < x < \min(3.0, -3.0)\ \\
+& -\infty \le x \le \min(3.0, -3.0)\
+\end{align}
+
+\vspace{1em}
+
+\end{document}

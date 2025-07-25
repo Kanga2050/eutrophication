@@ -1,0 +1,8 @@
+% Simplified LaTeX for Copy-Paste
+% Just the mathematical content
+
+% Case 1
+\[
+a > 0 \text{ and } \max\left(- \frac{b}{a}\right) < x < \min\left(1.0 \left(a + b\right)^{0.5}, - 1.0 \left(a + b\right)^{0.5}\right)
+\]
+

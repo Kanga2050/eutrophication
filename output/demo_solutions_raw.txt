@@ -1,0 +1,13 @@
+% Rational Inequality Solver Results
+% Generated on 2025-07-24 23:26:22
+
+% Case 1
+\textbf{Case 1: positive condition}\\[1em]\left\{x > 0 \wedge -2 < x < 2\right\}\\[1em]\left\{x > 0 \wedge -2 \le x \le 2\right\}
+
+%==================================================
+
+% Case 2
+\textbf{Case 2: negative condition}\\[1em]\left\{x < 0 \wedge x > -3\right\}\\[1em]\left\{x < 0 \wedge x \ge -3\right\}
+
+%==================================================
+
