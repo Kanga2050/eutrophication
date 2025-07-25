@@ -1,6 +1,10 @@
 """
 Main execution script for the rational inequality solver.
 Contains example usage and input definitions.
+
+For variable elimination functionality, see:
+- variable_eliminator.py (core elimination functionality)
+- unified_main.py (demonstration of both original and elimination approaches)
 """
 from sympy import symbols
 from solver import solve_rational_ineq_full

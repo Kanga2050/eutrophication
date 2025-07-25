@@ -1,8 +1,0 @@
-% Simplified LaTeX for Copy-Paste
-% Just the mathematical content
-
-% Case 1
-\[
-\max\left(-1\right) < x < \min\left(-2.0, 2.0\right)
-\]
-

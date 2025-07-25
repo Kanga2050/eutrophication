@@ -1,6 +1,10 @@
 """
 Example configurations for the rational inequality solver.
 Contains various test cases and example problems.
+
+For multi-variable elimination examples, see:
+- variable_eliminator.py (VariableEliminationSolver.demo() method)  
+- unified_main.py (complete demonstrations)
 """
 from sympy import symbols
 

@@ -1,8 +1,0 @@
-% Simplified LaTeX for Copy-Paste
-% Just the mathematical content
-
-% Case 1
-\[
--\infty < x < \min\left(1\right)
-\]
-
