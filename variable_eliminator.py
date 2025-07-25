@@ -294,61 +294,103 @@ For each variable elimination, we show four sub-steps:
         
         latex_content = f"\\section{{Step {step_num}: Eliminate Variable ${var_name}$}}\n\n"
         
-        # Sub-step 1: Input inequalities
+        # Sub-step 1: Input inequalities (ALL inequalities from this step)
         latex_content += f"\\subsection{{Step {step_num}.1: Input Inequalities}}\n\n"
-        latex_content += r"\begin{align}" + "\n"
-        for i, (lhs, op, rhs) in enumerate(step['input_inequalities']):
-            latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
-            if i < len(step['input_inequalities']) - 1:
-                latex_content += r" \\" + "\n"
-            else:
-                latex_content += "\n"
-        latex_content += r"\end{align}" + "\n\n"
         
-        # Sub-step 2: Min/Max expressions
-        latex_content += f"\\subsection{{Step {step_num}.2: Min/Max Expressions}}\n\n"
+        # Separate inequalities involving the variable vs those that don't
+        var_related = []
+        var_unrelated = []
+        
+        for ineq in step['input_inequalities']:
+            lhs, op, rhs = ineq
+            # Check if variable appears in this inequality
+            var_appears = (str(var_name) in str(lhs)) or (str(var_name) in str(rhs))
+            if var_appears:
+                var_related.append(ineq)
+            else:
+                var_unrelated.append(ineq)
+        
+        # Show inequalities involving the variable first
+        if var_related:
+            latex_content += f"Inequalities involving ${var_name}$:\n"
+            latex_content += r"\begin{align}" + "\n"
+            for i, (lhs, op, rhs) in enumerate(var_related):
+                latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
+                if i < len(var_related) - 1:
+                    latex_content += r" \\" + "\n"
+                else:
+                    latex_content += "\n"
+            latex_content += r"\end{align}" + "\n\n"
+        
+        # Show unrelated inequalities at the bottom
+        if var_unrelated:
+            latex_content += f"Inequalities not involving ${var_name}$ (preserved):\n"
+            latex_content += r"\begin{align}" + "\n"
+            for i, (lhs, op, rhs) in enumerate(var_unrelated):
+                latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
+                if i < len(var_unrelated) - 1:
+                    latex_content += r" \\" + "\n"
+                else:
+                    latex_content += "\n"
+            latex_content += r"\end{align}" + "\n\n"
+        
+        # Sub-step 2: Min/Max expressions with proper format
+        latex_content += f"\\subsection{{Step {step_num}.2: Min/Max Bounds for ${var_name}$}}\n\n"
         min_max = step['min_max_expressions']
         
-        if min_max['lower_bounds']:
-            latex_content += f"Lower bounds for ${var_name}$:\n"
-            latex_content += r"\begin{align}" + "\n"
-            for i, bound in enumerate(min_max['lower_bounds']):
-                latex_content += f"& {var_name} > {latex(bound['expression'])}"
-                if i < len(min_max['lower_bounds']) - 1:
-                    latex_content += r" \\" + "\n"
-                else:
-                    latex_content += "\n"
-            latex_content += r"\end{align}" + "\n\n"
+        # Format: max(expressions) <= x <= min(expressions) or max(expressions) < x < min(expressions)
+        lower_exprs = [bound['expression'] for bound in min_max['lower_bounds']] if min_max['lower_bounds'] else []
+        upper_exprs = [bound['expression'] for bound in min_max['upper_bounds']] if min_max['upper_bounds'] else []
         
-        if min_max['upper_bounds']:
-            latex_content += f"Upper bounds for ${var_name}$:\n"
+        if lower_exprs and upper_exprs:
+            # Both bounds exist - show complete constraint
+            max_expr = f"\\max\\left({', '.join([latex(expr) for expr in lower_exprs])}\\right)" if len(lower_exprs) > 1 else latex(lower_exprs[0])
+            min_expr = f"\\min\\left({', '.join([latex(expr) for expr in upper_exprs])}\\right)" if len(upper_exprs) > 1 else latex(upper_exprs[0])
+            
             latex_content += r"\begin{align}" + "\n"
-            for i, bound in enumerate(min_max['upper_bounds']):
-                latex_content += f"& {var_name} < {latex(bound['expression'])}"
-                if i < len(min_max['upper_bounds']) - 1:
-                    latex_content += r" \\" + "\n"
-                else:
-                    latex_content += "\n"
+            latex_content += f"& {max_expr} \\leq {var_name} \\leq {min_expr}\n"
             latex_content += r"\end{align}" + "\n\n"
+            
+        elif lower_exprs:
+            # Only lower bounds
+            max_expr = f"\\max\\left({', '.join([latex(expr) for expr in lower_exprs])}\\right)" if len(lower_exprs) > 1 else latex(lower_exprs[0])
+            latex_content += r"\begin{align}" + "\n"
+            latex_content += f"& {var_name} \\geq {max_expr}\n"
+            latex_content += r"\end{align}" + "\n\n"
+            
+        elif upper_exprs:
+            # Only upper bounds
+            min_expr = f"\\min\\left({', '.join([latex(expr) for expr in upper_exprs])}\\right)" if len(upper_exprs) > 1 else latex(upper_exprs[0])
+            latex_content += r"\begin{align}" + "\n"
+            latex_content += f"& {var_name} \\leq {min_expr}\n"
+            latex_content += r"\end{align}" + "\n\n"
+        else:
+            latex_content += "No bounds found for this variable.\n\n"
         
-        # Sub-step 3: Eliminated expressions
-        latex_content += f"\\subsection{{Step {step_num}.3: After Variable Elimination}}\n\n"
+        # Sub-step 3: After elimination - show constraint between bounds
+        latex_content += f"\\subsection{{Step {step_num}.3: Constraint After Eliminating ${var_name}$}}\n\n"
         eliminated = step['eliminated_expressions']
         
-        if eliminated['max_expression'] is not None:
-            latex_content += f"Maximum of lower bounds:\n"
+        if eliminated['max_expression'] is not None and eliminated['min_expression'] is not None:
+            latex_content += "For the system to be feasible:\n"
             latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& \\max = {latex(eliminated['max_expression'])}\n"
+            latex_content += f"& {latex(eliminated['max_expression'])} \\leq {latex(eliminated['min_expression'])}\n"
             latex_content += r"\end{align}" + "\n\n"
-        
-        if eliminated['min_expression'] is not None:
-            latex_content += f"Minimum of upper bounds:\n"
+        elif eliminated['max_expression'] is not None:
+            latex_content += "Lower bound constraint:\n"
             latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& \\min = {latex(eliminated['min_expression'])}\n"
+            latex_content += f"& \\text{{Any value}} \\geq {latex(eliminated['max_expression'])}\n"
             latex_content += r"\end{align}" + "\n\n"
+        elif eliminated['min_expression'] is not None:
+            latex_content += "Upper bound constraint:\n"
+            latex_content += r"\begin{align}" + "\n"
+            latex_content += f"& \\text{{Any value}} \\leq {latex(eliminated['min_expression'])}\n"
+            latex_content += r"\end{align}" + "\n\n"
+        else:
+            latex_content += "No constraints generated from elimination.\n\n"
         
-        # Sub-step 4: Final inequalities
-        latex_content += f"\\subsection{{Step {step_num}.4: Expanded Inequalities}}\n\n"
+        # Sub-step 4: All resulting inequalities (including unrelated ones)
+        latex_content += f"\\subsection{{Step {step_num}.4: All Resulting Inequalities}}\n\n"
         latex_content += r"\begin{align}" + "\n"
         for i, (lhs, op, rhs) in enumerate(step['output_inequalities']):
             latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"

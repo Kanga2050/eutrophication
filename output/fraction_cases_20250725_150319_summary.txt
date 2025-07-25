@@ -1,0 +1,65 @@
+VARIABLE ELIMINATION SOLVER - SUMMARY REPORT
+============================================================
+Generated on: 2025-07-25 15:03:19
+Total steps: 2
+Final inequalities: 2
+
+STEP 0: Initial Inequality System
+----------------------------------------
+Initial system:
+  1/(x1 + 2) >= 0
+  x2/(x1 - 1) <= 3
+  x1 + x2 >= 0
+  x1 - 2*x2 <= 5
+  a + b <= c
+
+STEP 1: Eliminate Variable x1
+----------------------------------------
+Variable eliminated: x1
+
+Input inequalities:
+  1/(x1 + 2) >= 0
+  x2/(x1 - 1) <= 3
+  x1 + x2 >= 0
+  x1 - 2*x2 <= 5
+  a + b <= c
+
+Lower bounds:
+  x1 > x2/3 + 1
+  x1 > -x2
+
+Upper bounds:
+  x1 < x2/3 + 1
+  x1 < 2*x2 + 5
+
+Output inequalities:
+  a + b <= c
+  -x2 <= x2/3 + 1
+  -x2 <= 2*x2 + 5
+  x2/3 + 1 <= x2/3 + 1
+  x2/3 + 1 <= 2*x2 + 5
+
+STEP 2: Eliminate Variable x2
+----------------------------------------
+Variable eliminated: x2
+
+Input inequalities:
+  a + b <= c
+  -x2 <= x2/3 + 1
+  -x2 <= 2*x2 + 5
+  x2/3 + 1 <= x2/3 + 1
+  x2/3 + 1 <= 2*x2 + 5
+
+Upper bounds:
+  x2 < -3/4
+  x2 < -5/3
+  x2 < -12/5
+
+Output inequalities:
+  a + b <= c
+  x2/3 + 1 <= x2/3 + 1
+
+FINAL SYSTEM:
+----------------------------------------
+  a + b <= c
+  x2/3 + 1 <= x2/3 + 1
