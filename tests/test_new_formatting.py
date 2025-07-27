@@ -101,7 +101,7 @@ def test_new_formatting():
             inequalities=inequalities,
             variables_to_eliminate=['x1', 'x2'],
             use_sign_analysis=True,
-            save_latex=True,
+            save_latex=False,
             output_filename=f"new_format_{timestamp}"
         )
         
