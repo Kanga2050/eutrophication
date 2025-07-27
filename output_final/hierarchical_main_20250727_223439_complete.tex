@@ -79,9 +79,9 @@ Starting with the following system of inequalities involving:
 \end{itemize}
 
 \begin{align}
-& \text{(1)} \quad (x1 + 1)/(x1 - 2) \geq 0 \\
-& \text{(2)} \quad x1 + x2 \leq a \\
-& \text{(3)} \quad x2 \geq b \\
+& \text{(1)} \quad x1 \cdot  \cdot 2 - a \cdot x1 + b \geq 0 \\
+& \text{(2)} \quad (x1 + x2)/(x2 - c) \geq 0 \\
+& \text{(3)} \quad x2 \leq d \\
 \end{align}
 
 Variables to eliminate (in order): $\{x_{1}, x_{2}\}$
@@ -89,76 +89,80 @@ Variables to eliminate (in order): $\{x_{1}, x_{2}\}$
 \textbf{Goal}: Eliminate all variables to obtain a system of inequalities
 involving only the constants $a, b, c, d, e, f, g, h, \ldots$
 
-\section{Case 1: $(x1 + 1)/(x1 - 2) >= 0$, $x1 + x2 <= a$, $x2 >= b$}
+\section{Case 1: $-a x1 + b + x1^2 >= 0$, $(x1 + x2)/(-c + x2) >= 0$, $x2 <= d$}
 
 Constraints for Case 1:
 \begin{align}
-& \frac{x_{1} + 1}{x_{1} - 2} >= 0 \\
-& x_{1} + x_{2} <= a \\
-& x_{2} >= b \\
+& - a x_{1} + b + x_{1}^{2} >= 0 \\
+& \frac{x_{1} + x_{2}}{- c + x_{2}} >= 0 \\
+& x_{2} <= d \\
 \end{align}
 
 \textbf{Elimination of variable $x1$ in Case 1:}
 
 \textbf{Step 1}: Inequalities after isolating $x1$:
 \begin{align}
-& x_{1} \geq -1 \\
-& x_{1} \leq a - x_{2} \\
-& x_{2} \geq b \\
+& x_{1} \geq 0 \\
+& x_{2} \leq d \\
 \end{align}
 
 \textbf{Step 2}: Inequalities after combining to min/max form:
 \begin{align}
-& x_{2} \geq b \\
-& \max\{-1\} \leq x1 \leq \min\{a - x_{2}\} \\
+& x_{2} \leq d \\
 \end{align}
 
 \textbf{Step 3}: Inequalities after removing $x1$:
 \begin{align}
-& x_{2} \geq b \\
-& -1 \leq a - x_{2} \\
+& x_{2} \leq d \\
 \end{align}
 
 \textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
 
-\subsection{Subcase 1.1: $x2 >= b$, $-1 <= a - x2$, $-a + x2 - 1 <= 0$}
+\section{Case 1: $x2 <= d$}
 
-Constraints for Subcase 1.1:
+Constraints for Case 1:
 \begin{align}
-& x_{2} >= b \\
-& -1 <= a - x_{2} \\
-& - a + x_{2} - 1 <= 0 \\
+& x_{2} <= d \\
 \end{align}
 
-\textbf{Elimination of variable $x2$ in Subcase 1.1:}
+\textbf{Elimination of variable $x2$ in Case 1:}
 
 \textbf{Step 1}: Inequalities after isolating $x2$:
 \begin{align}
-& x_{2} \geq b \\
-& -1 \leq a - x_{2} \\
-& x_{2} \leq a + 1 \\
+& x_{2} \geq 0 \\
 \end{align}
 
 \textbf{Step 2}: Inequalities after combining to min/max form:
 \begin{align}
-& -1 \leq a - x_{2} \\
-& \max\{b\} \leq x2 \leq \min\{a + 1\} \\
-\end{align}
-
-\textbf{Step 3}: Inequalities after removing $x2$:
-\begin{align}
-& b \leq a + 1 \\
 \end{align}
 
 \textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
 
-\subsubsection{Subsubcase 1.1.1: $b <= a + 1$, $-a + b - 1 <= 0$}
+\section{Case 1}
 
-Constraints for Subsubcase 1.1.1:
+\section{Case 1: $x2 <= d$}
+
+Constraints for Case 1:
 \begin{align}
-& b <= a + 1 \\
-& - a + b - 1 <= 0 \\
+& x_{2} <= d \\
 \end{align}
+
+\textbf{Elimination of variable $x2$ in Case 1:}
+
+\textbf{Step 1}: Inequalities after isolating $x2$:
+\begin{align}
+& x_{2} \geq 0 \\
+\end{align}
+
+\textbf{Step 2}: Inequalities after combining to min/max form:
+\begin{align}
+\end{align}
+
+\textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
+
+\section{Case 1}
+
+\section{Case 1}
 
 \section{Final Solution Summary}
 
@@ -166,18 +170,10 @@ After systematically eliminating all variables $\{x_{1}, x_{2}\}$
 using the enhanced hierarchical 4-step process, we obtain the following
 1 final case(s), each representing a complete solution region:
 
-\subsection{Final Case 1: Subsubcase 1.1.1}
+\subsection{Final Case 1: Case 1}
 
-This case represents the solution region defined by:
-\begin{align}
-& b \leq a + 1 \\
-& - a + b - 1 \leq 0 \\
-\end{align}
-
-\begin{stepdetail}
-\textbf{Interpretation}: This final case represents all parameter values
-$(a, b, c, d, e, f, g, h, \ldots)$ for which the original system has solutions.
-\end{stepdetail}
+This case has no constraints and represents the region where the original
+system is always satisfied (unconditionally feasible region).
 
 \section{Conclusion}
 
