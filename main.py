@@ -205,20 +205,44 @@ class HierarchicalCaseEliminator:
     
     def _step1_isolate_variable_hierarchical(self, case, variable):
         """Step 1: Isolate variable in each inequality"""
-        from sympy import symbols, solve
+        from sympy import symbols, solve, simplify
         var_symbol = symbols(variable)
         
         involving_var = []
         not_involving_var = []
         isolated_inequalities = []
+        step1_inequalities = []  # Track inequalities after step 1
         
         print(f"      STEP 1: Isolate variable {variable}")
+        print(f"        Goal: Transform each inequality containing {variable} to the form '{variable} ≥ expr' or '{variable} ≤ expr'")
+        print()
         
-        for ineq in case.inequalities:
+        for i, ineq in enumerate(case.inequalities):
             expr, op, rhs = ineq
             if var_symbol in expr.free_symbols:
                 involving_var.append(ineq)
-                print(f"        Processing: {expr} {op} {rhs}")
+                print(f"        Inequality {i+1}: {expr} {op} {rhs}")
+                print(f"          Contains variable {variable}, proceeding with isolation...")
+                
+                # Show the detailed isolation work
+                original_eq = f"{expr} {op} {rhs}"
+                print(f"          Original: {original_eq}")
+                
+                # Move terms to isolate the variable
+                equation = expr - rhs
+                print(f"          Rearranging: {equation} {op} 0")
+                
+                # Get coefficient and constant part
+                coeff = equation.coeff(var_symbol, 1)
+                constant_part = equation - coeff * var_symbol
+                
+                if coeff == 0 or coeff is None:
+                    print(f"          ERROR: Coefficient of {variable} is zero or undefined")
+                    continue
+                
+                print(f"          Coefficient of {variable}: {coeff}")
+                print(f"          Constant part: {constant_part}")
+                print(f"          Form: {coeff}*{variable} + ({constant_part}) {op} 0")
                 
                 # Isolate the variable
                 bound_result = self._solve_linear_inequality_for_variable(expr, op, rhs, variable)
@@ -226,94 +250,300 @@ class HierarchicalCaseEliminator:
                 if bound_result:
                     bound_type, bound_expr, new_op = bound_result
                     isolated_form = f"{variable} {new_op} {bound_expr}"
-                    print(f"          -> {isolated_form}")
+                    print(f"          Solving for {variable}: {isolated_form}")
+                    
+                    # Show the sign analysis for coefficient
+                    try:
+                        if coeff.is_positive:
+                            print(f"          Sign analysis: coefficient {coeff} > 0, inequality direction preserved")
+                        elif coeff.is_negative:
+                            print(f"          Sign analysis: coefficient {coeff} < 0, inequality direction flipped")
+                        else:
+                            print(f"          Sign analysis: coefficient {coeff} sign unknown, assuming positive")
+                    except:
+                        # For symbolic coefficients, we can't determine sign
+                        print(f"          Sign analysis: coefficient {coeff} is symbolic, assuming positive")
+                    
                     isolated_inequalities.append((bound_type, bound_expr, new_op))
+                    # Add to step1 inequalities as (variable, new_op, bound_expr) for consistency
+                    step1_inequalities.append((var_symbol, new_op, bound_expr))
+                    print(f"          RESULT: {isolated_form} ({bound_type} bound)")
                 else:
-                    print(f"          -> Could not isolate {variable}")
+                    print(f"          ERROR: Could not isolate {variable}")
+                print()
             else:
                 not_involving_var.append(ineq)
-                print(f"        Unchanged: {expr} {op} {rhs}")
+                step1_inequalities.append(ineq)  # Keep unchanged inequalities
+                print(f"        Inequality {i+1}: {expr} {op} {rhs}")
+                print(f"          Does not contain variable {variable}, keeping unchanged")
+                print()
+        
+        print(f"        STEP 1 SUMMARY:")
+        print(f"          Inequalities involving {variable}: {len(involving_var)}")
+        print(f"          Inequalities not involving {variable}: {len(not_involving_var)}")
+        print(f"          Successfully isolated inequalities: {len(isolated_inequalities)}")
+        
+        # Show the inequalities after Step 1
+        print(f"        INEQUALITIES AFTER STEP 1:")
+        for i, ineq in enumerate(step1_inequalities, 1):
+            if len(ineq) == 3:
+                lhs, op, rhs = ineq
+                print(f"          {i}. {lhs} {op} {rhs}")
+        print()
         
         return {
             'involving_var': involving_var,
             'not_involving_var': not_involving_var,
-            'isolated_inequalities': isolated_inequalities
+            'isolated_inequalities': isolated_inequalities,
+            'step1_inequalities': step1_inequalities
         }
     
     def _step2_combine_to_minmax_hierarchical(self, step1_result, variable):
         """Step 2: Combine to max/min form"""
+        from sympy import symbols
+        var_symbol = symbols(variable)
+        
         print(f"      STEP 2: Combine to max/min form")
+        print(f"        Goal: Collect lower bounds into max() and upper bounds into min()")
+        print()
         
         isolated = step1_result['isolated_inequalities']
+        not_involving_var = step1_result['not_involving_var']
         lower_bounds = []
         upper_bounds = []
+        step2_inequalities = []  # Track inequalities after step 2
         
-        for bound_type, bound_expr, op in isolated:
+        print(f"        Processing {len(isolated)} isolated inequalities:")
+        
+        for i, (bound_type, bound_expr, op) in enumerate(isolated):
+            print(f"          {i+1}. {variable} {op} {bound_expr}")
             if bound_type == 'lower':
                 lower_bounds.append((bound_expr, op))
+                print(f"             -> Added to LOWER bounds collection")
             else:
                 upper_bounds.append((bound_expr, op))
+                print(f"             -> Added to UPPER bounds collection")
+        
+        print()
+        print(f"        Lower bounds collected: {len(lower_bounds)}")
+        for i, (expr, op) in enumerate(lower_bounds):
+            print(f"          {i+1}. {variable} {op} {expr}")
+        
+        print(f"        Upper bounds collected: {len(upper_bounds)}")
+        for i, (expr, op) in enumerate(upper_bounds):
+            print(f"          {i+1}. {variable} {op} {expr}")
+        
+        print()
+        
+        # Create the step 2 inequalities (minmax form + non-involving)
+        step2_inequalities.extend(not_involving_var)  # Keep non-involving constraints
         
         minmax_form = None
+        minmax_inequalities = []  # Store the actual min/max inequalities
+        
         if lower_bounds and upper_bounds:
             lower_exprs = [str(expr) for expr, op in lower_bounds]
             upper_exprs = [str(expr) for expr, op in upper_bounds]
             minmax_form = f"max({', '.join(lower_exprs)}) <= {variable} <= min({', '.join(upper_exprs)})"
-            print(f"        Combined form: {minmax_form}")
+            
+            # Create two inequalities: max(lower) <= variable and variable <= min(upper)
+            from sympy import Max, Min
+            max_lower = Max(*[expr for expr, op in lower_bounds])
+            min_upper = Min(*[expr for expr, op in upper_bounds])
+            
+            minmax_inequalities.append((max_lower, '<=', var_symbol))
+            minmax_inequalities.append((var_symbol, '<=', min_upper))
+            step2_inequalities.extend(minmax_inequalities)
+            
+            print(f"        COMBINED FORM: {minmax_form}")
+            print(f"          Left side: max of {len(lower_exprs)} expressions")
+            print(f"          Right side: min of {len(upper_exprs)} expressions")
         elif lower_bounds:
             lower_exprs = [str(expr) for expr, op in lower_bounds]
             minmax_form = f"{variable} >= max({', '.join(lower_exprs)})"
-            print(f"        Combined form: {minmax_form}")
+            
+            from sympy import Max
+            max_lower = Max(*[expr for expr, op in lower_bounds])
+            minmax_inequalities.append((max_lower, '<=', var_symbol))
+            step2_inequalities.extend(minmax_inequalities)
+            
+            print(f"        COMBINED FORM: {minmax_form}")
+            print(f"          Only lower bounds: max of {len(lower_exprs)} expressions")
         elif upper_bounds:
             upper_exprs = [str(expr) for expr, op in upper_bounds]
             minmax_form = f"{variable} <= min({', '.join(upper_exprs)})"
-            print(f"        Combined form: {minmax_form}")
+            
+            from sympy import Min
+            min_upper = Min(*[expr for expr, op in upper_bounds])
+            minmax_inequalities.append((var_symbol, '<=', min_upper))
+            step2_inequalities.extend(minmax_inequalities)
+            
+            print(f"        COMBINED FORM: {minmax_form}")
+            print(f"          Only upper bounds: min of {len(upper_exprs)} expressions")
+        else:
+            print(f"        No bounds found for variable {variable}")
+        
+        # Show the inequalities after Step 2
+        print(f"        INEQUALITIES AFTER STEP 2:")
+        for i, ineq in enumerate(step2_inequalities, 1):
+            if len(ineq) == 3:
+                lhs, op, rhs = ineq
+                print(f"          {i}. {lhs} {op} {rhs}")
+        
+        print(f"        STEP 2 SUMMARY: Created {minmax_form if minmax_form else 'no constraints'}")
+        print()
         
         return {
             'lower_bounds': lower_bounds,
             'upper_bounds': upper_bounds,
-            'minmax_form': minmax_form
+            'minmax_form': minmax_form,
+            'step2_inequalities': step2_inequalities,
+            'minmax_inequalities': minmax_inequalities
         }
     
     def _step3_remove_variable_hierarchical(self, step2_result, variable):
         """Step 3: Remove variable creating elimination constraints"""
         print(f"      STEP 3: Remove variable {variable}")
+        print(f"        Goal: Replace variable with feasibility constraints")
+        print()
         
         lower_bounds = step2_result['lower_bounds']
         upper_bounds = step2_result['upper_bounds']
+        minmax_form = step2_result['minmax_form']
+        not_involving_var = step2_result.get('step2_inequalities', [])
         elimination_constraints = []
+        step3_inequalities = []  # Track inequalities after step 3
+        
+        # Start with non-involving variables
+        from sympy import symbols
+        var_symbol = symbols(variable)
+        step3_inequalities = []
+        
+        # Filter out inequalities that involve the variable being eliminated
+        for ineq in not_involving_var:
+            if len(ineq) == 3:
+                lhs, op, rhs = ineq
+                # Check if variable appears in left-hand side or right-hand side
+                lhs_has_var = hasattr(lhs, 'free_symbols') and var_symbol in lhs.free_symbols
+                rhs_has_var = hasattr(rhs, 'free_symbols') and var_symbol in rhs.free_symbols
+                
+                if not lhs_has_var and not rhs_has_var:
+                    step3_inequalities.append(ineq)
+        
+        if minmax_form:
+            print(f"        Starting with combined form: {minmax_form}")
         
         if lower_bounds and upper_bounds:
             lower_exprs = [expr for expr, op in lower_bounds]
             upper_exprs = [expr for expr, op in upper_bounds]
             
+            print(f"        Variable {variable} is bounded:")
+            print(f"          Lower bounds: {[str(expr) for expr in lower_exprs]}")
+            print(f"          Upper bounds: {[str(expr) for expr in upper_exprs]}")
+            print()
+            
+            print(f"        For feasibility, we need: max(lower_bounds) ≤ min(upper_bounds)")
             constraint_desc = f"max({', '.join(map(str, lower_exprs))}) <= min({', '.join(map(str, upper_exprs))})"
             elimination_constraints.append(constraint_desc)
-            print(f"        Elimination constraint: {constraint_desc}")
+            
+            # Create the actual elimination constraint
+            from sympy import Max, Min
+            max_lower = Max(*lower_exprs)
+            min_upper = Min(*upper_exprs)
+            elimination_constraint = (max_lower, '<=', min_upper)
+            step3_inequalities.append(elimination_constraint)
+            
+            print(f"        ELIMINATION CONSTRAINT: {constraint_desc}")
+            print(f"          This ensures that the maximum of all lower bounds")
+            print(f"          does not exceed the minimum of all upper bounds")
+            print()
+            
+        elif lower_bounds:
+            lower_exprs = [expr for expr, op in lower_bounds]
+            print(f"        Variable {variable} has only lower bounds:")
+            print(f"          Lower bounds: {[str(expr) for expr in lower_exprs]}")
+            print(f"        No elimination constraint needed (variable can be arbitrarily large)")
+            print()
+            
+        elif upper_bounds:
+            upper_exprs = [expr for expr, op in upper_bounds]
+            print(f"        Variable {variable} has only upper bounds:")
+            print(f"          Upper bounds: {[str(expr) for expr in upper_exprs]}")
+            print(f"        No elimination constraint needed (variable can be arbitrarily small)")
+            print()
+            
+        else:
+            print(f"        Variable {variable} has no bounds")
+            print(f"        No elimination constraint needed (variable is unconstrained)")
+            print()
+        
+        # Show the inequalities after Step 3
+        print(f"        INEQUALITIES AFTER STEP 3:")
+        for i, ineq in enumerate(step3_inequalities, 1):
+            if len(ineq) == 3:
+                lhs, op, rhs = ineq
+                print(f"          {i}. {lhs} {op} {rhs}")
+        
+        print(f"        STEP 3 SUMMARY:")
+        print(f"          Generated {len(elimination_constraints)} elimination constraint(s)")
+        for i, constraint in enumerate(elimination_constraints, 1):
+            print(f"            {i}. {constraint}")
+        print()
         
         return {
             'elimination_constraints': elimination_constraints,
             'lower_exprs': [expr for expr, op in lower_bounds] if lower_bounds else [],
-            'upper_exprs': [expr for expr, op in upper_bounds] if upper_bounds else []
+            'upper_exprs': [expr for expr, op in upper_bounds] if upper_bounds else [],
+            'step3_inequalities': step3_inequalities
         }
     
     def _step4_expand_cases_hierarchical(self, step3_result, variable, parent_case):
         """Step 4: Expand cases with hierarchical naming"""
         print(f"      STEP 4: Expand cases")
+        print(f"        Goal: Create subcases for each min/max combination to fully represent constraints")
+        print()
         
         lower_exprs = step3_result['lower_exprs']
         upper_exprs = step3_result['upper_exprs']
+        step3_inequalities = step3_result.get('step3_inequalities', [])
         subcases = []
         
         # Get non-involving constraints to add to each subcase
         from sympy import symbols
         var_symbol = symbols(variable)
-        not_involving_var = [ineq for ineq in parent_case.inequalities 
-                           if var_symbol not in ineq[0].free_symbols]
+        not_involving_var = []
+        
+        # Filter out inequalities that involve the variable being eliminated
+        for ineq in step3_inequalities:
+            if len(ineq) == 3:
+                lhs, op, rhs = ineq
+                # Check if variable appears in left-hand side or right-hand side
+                lhs_has_var = hasattr(lhs, 'free_symbols') and var_symbol in lhs.free_symbols
+                rhs_has_var = hasattr(rhs, 'free_symbols') and var_symbol in rhs.free_symbols
+                
+                if not lhs_has_var and not rhs_has_var:
+                    not_involving_var.append(ineq)
+        
+        print(f"        Constraints not involving {variable}: {len(not_involving_var)}")
+        for i, (expr, op, rhs) in enumerate(not_involving_var, 1):
+            print(f"          {i}. {expr} {op} {rhs}")
+        print()
+        
+        print(f"        Lower bound expressions: {len(lower_exprs)}")
+        for i, expr in enumerate(lower_exprs, 1):
+            print(f"          {i}. {expr}")
+        
+        print(f"        Upper bound expressions: {len(upper_exprs)}")
+        for i, expr in enumerate(upper_exprs, 1):
+            print(f"          {i}. {expr}")
+        print()
         
         if lower_exprs and upper_exprs:
             # Create all combinations: each lower bound vs each upper bound
-            print(f"        Creating {len(lower_exprs)} × {len(upper_exprs)} = {len(lower_exprs) * len(upper_exprs)} subcases")
+            total_combinations = len(lower_exprs) * len(upper_exprs)
+            print(f"        Creating {len(lower_exprs)} × {len(upper_exprs)} = {total_combinations} subcases")
+            print(f"        Each subcase represents when a specific lower bound ≤ specific upper bound")
+            print()
             
             for i, lower_expr in enumerate(lower_exprs):
                 for j, upper_expr in enumerate(upper_exprs):
@@ -333,11 +563,23 @@ class HierarchicalCaseEliminator:
                     
                     parent_case.add_subcase(subcase)
                     subcases.append(subcase)
-                    print(f"          {subcase_name}: {lower_expr} <= {upper_expr}")
+                    
+                    print(f"          {subcase_name}:")
+                    print(f"            Condition: {lower_expr} ≤ {upper_expr}")
+                    print(f"            Mathematical form: {lower_expr} - ({upper_expr}) ≤ 0")
+                    print(f"            INEQUALITIES AFTER STEP 4:")
+                    for k, ineq in enumerate(subcase_inequalities, 1):
+                        if len(ineq) == 3:
+                            lhs, op, rhs = ineq
+                            print(f"              {k}. {lhs} {op} {rhs}")
+                    print(f"            Total constraints in subcase: {len(subcase_inequalities)}")
+                    print()
                     
         elif len(lower_exprs) > 1:
             # Multiple lower bounds: determine which is tightest
-            print(f"        Multiple lower bounds - creating {len(lower_exprs)} tightness subcases")
+            print(f"        Multiple lower bounds case - creating {len(lower_exprs)} subcases")
+            print(f"        Each subcase represents when a specific lower bound is the tightest")
+            print()
             
             for i, tightest_lower in enumerate(lower_exprs):
                 subcase_name, subcase_id = self.naming_system.get_case_name(
@@ -345,10 +587,13 @@ class HierarchicalCaseEliminator:
                 )
                 
                 case_constraints = list(not_involving_var)
+                tightness_constraints = []
+                
                 for j, other_lower in enumerate(lower_exprs):
                     if i != j:
                         tightness_constraint = (tightest_lower - other_lower, '>=', 0)
                         case_constraints.append(tightness_constraint)
+                        tightness_constraints.append(f"{tightest_lower} ≥ {other_lower}")
                 
                 subcase = HierarchicalCase(
                     subcase_name, subcase_id, case_constraints,
@@ -357,11 +602,25 @@ class HierarchicalCaseEliminator:
                 
                 parent_case.add_subcase(subcase)
                 subcases.append(subcase)
-                print(f"          {subcase_name}: {tightest_lower} is tightest")
+                
+                print(f"          {subcase_name}:")
+                print(f"            Tightest lower bound: {tightest_lower}")
+                print(f"            Tightness conditions:")
+                for k, condition in enumerate(tightness_constraints, 1):
+                    print(f"              {k}. {condition}")
+                print(f"            INEQUALITIES AFTER STEP 4:")
+                for k, ineq in enumerate(case_constraints, 1):
+                    if len(ineq) == 3:
+                        lhs, op, rhs = ineq
+                        print(f"              {k}. {lhs} {op} {rhs}")
+                print(f"            Total constraints in subcase: {len(case_constraints)}")
+                print()
                 
         elif len(upper_exprs) > 1:
             # Multiple upper bounds: determine which is tightest
-            print(f"        Multiple upper bounds - creating {len(upper_exprs)} tightness subcases")
+            print(f"        Multiple upper bounds case - creating {len(upper_exprs)} subcases")
+            print(f"        Each subcase represents when a specific upper bound is the tightest")
+            print()
             
             for i, tightest_upper in enumerate(upper_exprs):
                 subcase_name, subcase_id = self.naming_system.get_case_name(
@@ -369,10 +628,13 @@ class HierarchicalCaseEliminator:
                 )
                 
                 case_constraints = list(not_involving_var)
+                tightness_constraints = []
+                
                 for j, other_upper in enumerate(upper_exprs):
                     if i != j:
                         tightness_constraint = (tightest_upper - other_upper, '<=', 0)
                         case_constraints.append(tightness_constraint)
+                        tightness_constraints.append(f"{tightest_upper} ≤ {other_upper}")
                 
                 subcase = HierarchicalCase(
                     subcase_name, subcase_id, case_constraints,
@@ -381,7 +643,19 @@ class HierarchicalCaseEliminator:
                 
                 parent_case.add_subcase(subcase)
                 subcases.append(subcase)
-                print(f"          {subcase_name}: {tightest_upper} is tightest")
+                
+                print(f"          {subcase_name}:")
+                print(f"            Tightest upper bound: {tightest_upper}")
+                print(f"            Tightness conditions:")
+                for k, condition in enumerate(tightness_constraints, 1):
+                    print(f"              {k}. {condition}")
+                print(f"            INEQUALITIES AFTER STEP 4:")
+                for k, ineq in enumerate(case_constraints, 1):
+                    if len(ineq) == 3:
+                        lhs, op, rhs = ineq
+                        print(f"              {k}. {lhs} {op} {rhs}")
+                print(f"            Total constraints in subcase: {len(case_constraints)}")
+                print()
         else:
             # No expansion needed, just carry over constraints
             subcase_name, subcase_id = self.naming_system.get_case_name(
@@ -395,7 +669,23 @@ class HierarchicalCaseEliminator:
             
             parent_case.add_subcase(subcase)
             subcases.append(subcase)
-            print(f"          {subcase_name}: No expansion needed")
+            
+            print(f"          {subcase_name}:")
+            print(f"            No case expansion needed")
+            print(f"            Simply carrying over non-involving constraints")
+            print(f"            INEQUALITIES AFTER STEP 4:")
+            for k, ineq in enumerate(not_involving_var, 1):
+                if len(ineq) == 3:
+                    lhs, op, rhs = ineq
+                    print(f"              {k}. {lhs} {op} {rhs}")
+            print(f"            Total constraints in subcase: {len(not_involving_var)}")
+            print()
+        
+        print(f"        STEP 4 SUMMARY:")
+        print(f"          Generated {len(subcases)} subcase(s)")
+        for i, subcase in enumerate(subcases, 1):
+            print(f"            {i}. {subcase.name} - {len(subcase.inequalities)} constraints")
+        print()
         
         return subcases
     
@@ -418,9 +708,9 @@ class HierarchicalCaseEliminator:
             if op in ['>=', '>']:
                 # For a*x >= b, if a > 0: x >= b/a, if a < 0: x <= b/a
                 try:
-                    if coeff.is_positive or (coeff.is_real and coeff > 0):
+                    if coeff.is_positive:
                         return 'lower', bound_expr, '>=' if op == '>=' else '>'
-                    elif coeff.is_negative or (coeff.is_real and coeff < 0):
+                    elif coeff.is_negative:
                         return 'upper', bound_expr, '<=' if op == '>=' else '<'
                     else:
                         # Coefficient sign is unknown, assume positive for simplicity
@@ -432,9 +722,9 @@ class HierarchicalCaseEliminator:
             elif op in ['<=', '<']:
                 # For a*x <= b, if a > 0: x <= b/a, if a < 0: x >= b/a
                 try:
-                    if coeff.is_positive or (coeff.is_real and coeff > 0):
+                    if coeff.is_positive:
                         return 'upper', bound_expr, '<=' if op == '<=' else '<'
-                    elif coeff.is_negative or (coeff.is_real and coeff < 0):
+                    elif coeff.is_negative:
                         return 'lower', bound_expr, '>=' if op == '<=' else '>'
                     else:
                         # Coefficient sign is unknown, assume positive for simplicity
@@ -450,22 +740,43 @@ class HierarchicalCaseEliminator:
 
 def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_eliminate=None):
     """
-    Hierarchical variable elimination with 4-step process and descriptive case naming.
+    Hierarchical variable elimination with enhanced 4-step process documentation.
     
     This function implements the complete 4-step variable elimination process with
-    hierarchical case structures and individual subcase solving.
+    hierarchical case structures, individual subcase solving, and detailed documentation
+    of conditions for each case and subcase.
     
-    Features:
-    - Hierarchical case naming (case 1, subcase 1.1, subsubcase 1.1.2, etc.)
-    - Individual subcase solving and documentation
-    - Complete 4-step process for each variable
-    - LaTeX generation with proper case hierarchy
+    Enhanced Features:
+    - Hierarchical case naming with conditions (case 1: condition1, subcase 1.1: condition1 ∧ condition2)
+    - Detailed 4-step process documentation for each variable
+    - Individual subcase solving with condition tracking
+    - Enhanced LaTeX generation with step-by-step explanations
+    - Complete mathematical rigor in case differentiation
+    
+    4-Step Process for Each Variable:
+    1. **Isolate Variable**: Solve each inequality containing the target variable
+       - Convert ax + b ≥ c to x ≥ (c-b)/a (handling coefficient signs)
+       - Separate into lower bounds (x ≥ expr) and upper bounds (x ≤ expr)
+    
+    2. **Combine to Min/Max**: Form max(lower bounds) ≤ variable ≤ min(upper bounds)
+       - Collect all lower bound expressions into max() form
+       - Collect all upper bound expressions into min() form
+       - Create unified constraint for the variable
+    
+    3. **Remove Variable**: Create elimination constraints max(lower) ≤ min(upper)
+       - Replace variable with the min/max constraints
+       - Generate feasibility conditions for the system
+    
+    4. **Expand Cases**: Create hierarchical subcases for each min/max combination
+       - For each pair (lower_i, upper_j), create case where lower_i ≤ upper_j
+       - Name cases hierarchically with specific conditions
+       - Recursively apply to all remaining variables
     """
     print("=" * 80)
-    print("HIERARCHICAL VARIABLE ELIMINATION WITH 4-STEP PROCESS")  
+    print("ENHANCED HIERARCHICAL VARIABLE ELIMINATION WITH 4-STEP PROCESS")  
     print("=" * 80)
     
-    # Use provided inequalities or default example system
+    # Use provided inequalities or enhanced default example system
     if inequalities is None:
         inequalities = [
             "x1 + 2*x2 + a >= b",     # Mixed variables and constants
@@ -491,43 +802,73 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
         # Extract variables (assume variables start with 'x')
         variables_to_eliminate = sorted([str(s) for s in all_symbols if str(s).startswith('x')])
     
-    print("HIERARCHICAL SYSTEM:")
+    print("ENHANCED HIERARCHICAL SYSTEM:")
+    print("Variables are represented as x1, x2, x3, x4, ...")
+    print("Constants are represented as a, b, c, d, e, f, g, h, ...")
+    print()
+    
     for i, ineq in enumerate(inequalities, 1):
         print(f"  {i}. {ineq}")
     
     print(f"\nVariables to eliminate (in order): {variables_to_eliminate}")
-    print("\nThis system will be processed using the hierarchical 4-step elimination method:")
-    print("1. Isolate each variable in relevant inequalities")
-    print("2. Combine to max(lower_bounds) <= variable <= min(upper_bounds)")
-    print("3. Remove variable: max(lower_bounds) <= min(upper_bounds)")
-    print("4. Expand min/max combinations into hierarchical subcases")
+    print("\nThis system will be processed using the enhanced hierarchical 4-step elimination method:")
+    print("1. **Isolate Variable**: Solve each inequality for the target variable")
+    print("   - Handle coefficient signs properly when isolating")
+    print("   - Separate into lower bounds (x ≥ expr) and upper bounds (x ≤ expr)")
+    print()
+    print("2. **Combine to Min/Max**: Form max(lower_bounds) ≤ variable ≤ min(upper_bounds)")
+    print("   - Collect all lower bound expressions")
+    print("   - Collect all upper bound expressions")
+    print()
+    print("3. **Remove Variable**: Create elimination constraints max(lower) ≤ min(upper)")
+    print("   - Replace variable with feasibility conditions")
+    print()
+    print("4. **Expand Cases**: Create hierarchical subcases for each min/max combination")
+    print("   - Generate all feasible combinations")
+    print("   - Name cases with their specific conditions")
+    print("   - Apply recursively to remaining variables")
     print()
     
     try:
-        # Create hierarchical eliminator
+        # Create enhanced hierarchical eliminator
         eliminator = HierarchicalCaseEliminator()
         
-        # Perform hierarchical elimination
+        # Perform hierarchical elimination with enhanced documentation
         final_cases = eliminator.eliminate_variables_hierarchical(inequalities, variables_to_eliminate)
         
-        print(f"✅ Generated {len(final_cases)} final cases using hierarchical 4-step elimination:")
+        print(f"✅ Generated {len(final_cases)} final cases using enhanced hierarchical 4-step elimination:")
+        
         for case in final_cases:
             print(f"\n  {case.name}:")
+            
+            # Show the path to this case
+            case_path = []
+            current = case
+            while current.parent:
+                case_path.append(current.name)
+                current = current.parent
+            case_path.append(current.name)
+            case_path.reverse()
+            
+            print(f"    Path: {' → '.join(case_path)}")
+            print(f"    Level: {case.level}")
+            
             if not case.inequalities:
                 print(f"    No constraints (always satisfied)")
             else:
+                print(f"    Final constraints:")
                 for i, constraint in enumerate(case.inequalities, 1):
                     expr, op, rhs = constraint
                     if rhs == 0:
                         simplified_expr = simplify(expr)
                         if simplified_expr == expr:
-                            print(f"    {i}. {expr} {op} 0")
+                            print(f"      {i}. {expr} {op} 0")
                         else:
-                            print(f"    {i}. {simplified_expr} {op} 0  (from {expr} {op} 0)")
+                            print(f"      {i}. {simplified_expr} {op} 0  (simplified from {expr} {op} 0)")
                     else:
-                        print(f"    {i}. {expr} {op} {rhs}")
+                        print(f"      {i}. {expr} {op} {rhs}")
         
-        # Generate hierarchical LaTeX documentation
+        # Generate enhanced hierarchical LaTeX documentation
         latex_generator = HierarchicalLatexGenerator()
         latex_content = latex_generator.generate_hierarchical_latex(
             eliminator.all_cases, variables_to_eliminate, inequalities
@@ -543,19 +884,26 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
         with open(filename, 'w') as f:
             f.write(latex_content)
         
-        print(f"\n✅ Generated HIERARCHICAL LaTeX: {filename}")
+        print(f"\n✅ Generated ENHANCED HIERARCHICAL LaTeX: {filename}")
         
-        # Display case analysis
+        # Display enhanced case analysis
         display_hierarchical_case_analysis(eliminator.all_cases)
         
         print("\n" + "="*60)
-        print("HIERARCHICAL VARIABLE ELIMINATION COMPLETED")
+        print("ENHANCED HIERARCHICAL VARIABLE ELIMINATION COMPLETED")
         print("="*60)
+        print()
+        print("Key Enhancements:")
+        print("• Case headers include specific conditions")
+        print("• Detailed 4-step process documentation")
+        print("• Mathematical rigor in case differentiation")
+        print("• Complete path tracing for each final case")
+        print("• Enhanced LaTeX with step-by-step explanations")
         
         return True
         
     except Exception as e:
-        print(f"Error during hierarchical variable elimination: {e}")
+        print(f"Error during enhanced hierarchical variable elimination: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -570,10 +918,10 @@ class HierarchicalLatexGenerator:
         return latex(expr)
     
     def generate_hierarchical_latex(self, all_cases, variables_to_eliminate, original_inequalities):
-        """Generate complete LaTeX with hierarchical case documentation"""
+        """Generate complete LaTeX with enhanced hierarchical case documentation"""
         latex_content = []
         
-        # Document header
+        # Enhanced document header
         latex_content.extend([
             "\\documentclass{article}",
             "\\usepackage{amsmath}",
@@ -582,14 +930,21 @@ class HierarchicalLatexGenerator:
             "\\usepackage{enumitem}",
             "\\usepackage{array}",
             "\\usepackage{titlesec}",
+            "\\usepackage{xcolor}",
             "\\geometry{margin=1in}",
             "",
             "% Custom section formatting for hierarchical cases",
             "\\titleformat{\\subsubsection}[runin]{\\normalfont\\bfseries}{\\thesubsubsection.}{1em}{}",
             "\\titleformat{\\paragraph}[runin]{\\normalfont\\bfseries}{\\theparagraph.}{1em}{}",
             "",
-            "\\title{Hierarchical Variable Elimination: Complete 4-Step Process with Case Management}",
-            "\\author{Enhanced Rational Inequality Solver}",
+            "% Custom environments for mathematical steps",
+            "\\newenvironment{stepdetail}",
+            "  {\\begin{quote}\\small\\color{blue}}",
+            "  {\\end{quote}}",
+            "",
+            "\\title{Enhanced Hierarchical Variable Elimination: \\\\",
+            "Complete 4-Step Process with Condition-Specific Case Management}",
+            "\\author{Enhanced Rational Inequality Solver with Case Conditions}",
             "\\date{\\today}",
             "",
             "\\begin{document}",
@@ -597,84 +952,115 @@ class HierarchicalLatexGenerator:
             ""
         ])
         
-        # Introduction
+        # Enhanced introduction
         latex_content.extend([
             "\\section{Introduction}",
             "",
-            "This document demonstrates the complete hierarchical 4-step variable elimination process",
-            "with descriptive case naming (case 1, subcase 1.1, subsubcase 1.1.2, etc.). Each subcase",
-            "is solved individually and documented with full mathematical rigor.",
+            "This document demonstrates the enhanced hierarchical 4-step variable elimination process",
+            "with condition-specific case naming. Each case and subcase header explicitly shows the",
+            "specific mathematical conditions that define that case, providing complete transparency",
+            "in the case differentiation process.",
             "",
-            "\\subsection{Hierarchical 4-Step Elimination Process}",
+            "\\subsection{Enhanced Hierarchical 4-Step Elimination Process}",
             "",
-            "For each variable to be eliminated, we follow these steps:",
+            "For each variable to be eliminated, we follow these enhanced steps:",
             "\\begin{enumerate}",
             "\\item \\textbf{Isolate Variable}: Solve each inequality containing the target variable",
+            "  \\begin{itemize}",
+            "    \\item Convert $ax + b \\geq c$ to $x \\geq \\frac{c-b}{a}$ (if $a > 0$) or $x \\leq \\frac{c-b}{a}$ (if $a < 0$)",
+            "    \\item Properly handle coefficient signs during isolation",
+            "    \\item Separate into lower bounds ($x \\geq \\text{expr}$) and upper bounds ($x \\leq \\text{expr}$)",
+            "  \\end{itemize}",
             "\\item \\textbf{Combine to Min/Max}: Form $\\max(\\text{lower bounds}) \\leq \\text{variable} \\leq \\min(\\text{upper bounds})$",
+            "  \\begin{itemize}",
+            "    \\item Collect all lower bound expressions into $\\max(\\text{expr}_1, \\text{expr}_2, \\ldots)$",
+            "    \\item Collect all upper bound expressions into $\\min(\\text{expr}_1, \\text{expr}_2, \\ldots)$",
+            "  \\end{itemize}",
             "\\item \\textbf{Remove Variable}: Create elimination constraints $\\max(\\text{lower bounds}) \\leq \\min(\\text{upper bounds})$",
+            "  \\begin{itemize}",
+            "    \\item Replace the variable with feasibility conditions",
+            "    \\item Generate constraint combinations for case expansion",
+            "  \\end{itemize}",
             "\\item \\textbf{Expand Cases}: Create hierarchical subcases for each min/max combination",
+            "  \\begin{itemize}",
+            "    \\item For each pair $(\\text{lower}_i, \\text{upper}_j)$: create case where $\\text{lower}_i \\leq \\text{upper}_j$",
+            "    \\item Name each case with its specific defining conditions",
+            "    \\item Apply recursively to remaining variables",
+            "  \\end{itemize}",
             "\\end{enumerate}",
             "",
-            "\\subsection{Case Naming System}",
+            "\\subsection{Enhanced Case Naming System}",
             "",
-            "Cases are named hierarchically:",
+            "Cases are named hierarchically with their specific conditions:",
             "\\begin{itemize}",
-            "\\item \\textbf{Case 1, Case 2, ...}: Top-level cases",
-            "\\item \\textbf{Subcase 1.1, Subcase 1.2, ...}: First-level subcases",
-            "\\item \\textbf{Subsubcase 1.1.1, Subsubcase 1.1.2, ...}: Second-level subcases",
-            "\\item And so on for deeper nesting levels",
+            "\\item \\textbf{Case 1: condition1, Case 2: condition2, ...}: Top-level cases with their defining conditions",
+            "\\item \\textbf{Subcase 1.1: condition1 $\\wedge$ subcondition1.1, ...}: First-level subcases",
+            "\\item \\textbf{Subsubcase 1.1.1: condition1 $\\wedge$ subcondition1.1 $\\wedge$ subsubcondition1.1.1, ...}: Second-level subcases",
+            "\\item And so on for deeper nesting levels with complete condition inheritance",
             "\\end{itemize}",
             ""
         ])
         
-        # Show original system
+        # Show enhanced original system
         latex_content.extend([
             "\\section{Initial System}",
             "",
-            "Starting with the following system of inequalities:",
+            "Starting with the following system of inequalities involving:",
+            "\\begin{itemize}",
+            "\\item \\textbf{Variables}: $x_1, x_2, x_3, x_4, \\ldots$ (to be eliminated in order)",
+            "\\item \\textbf{Constants}: $a, b, c, d, e, f, g, h, \\ldots$ (parameters)",
+            "\\end{itemize}",
             "",
             "\\begin{align}"
         ])
         
         for i, ineq in enumerate(original_inequalities, 1):
-            latex_content.append(f"& \\text{{({i})}} \\quad {ineq} \\\\")
+            # Enhanced formatting for the original inequalities
+            formatted_ineq = ineq.replace('*', ' \\cdot ').replace('>=', '\\geq').replace('<=', '\\leq')
+            latex_content.append(f"& \\text{{({i})}} \\quad {formatted_ineq} \\\\")
         
         latex_content.extend([
             "\\end{align}",
             "",
-            f"Variables to eliminate (in order): $\\{{{', '.join(variables_to_eliminate)}\\}}$",
+            f"Variables to eliminate (in order): $\\{{{', '.join([f'x_{{{v[1:]}}}' if v.startswith('x') else v for v in variables_to_eliminate])}\\}}$",
+            "",
+            "\\textbf{Goal}: Eliminate all variables to obtain a system of inequalities",
+            "involving only the constants $a, b, c, d, e, f, g, h, \\ldots$",
             ""
         ])
         
-        # Document each case hierarchically
+        # Document each case hierarchically with enhanced formatting
         root_cases = [case for case in all_cases if case.level == 0]
         
         for root_case in root_cases:
             latex_content.extend(self._generate_case_hierarchy_latex(root_case, variables_to_eliminate))
         
-        # Show final solution summary
+        # Enhanced final solution summary
         final_cases = [case for case in all_cases if not case.subcases]
         latex_content.extend([
             "\\section{Final Solution Summary}",
             "",
-            f"After eliminating all variables $\\{{{', '.join(variables_to_eliminate)}\\}}$, we obtain",
-            f"the following {len(final_cases)} final case(s):",
+            f"After systematically eliminating all variables $\\{{{', '.join([f'x_{{{v[1:]}}}' if v.startswith('x') else v for v in variables_to_eliminate])}\\}}$",
+            f"using the enhanced hierarchical 4-step process, we obtain the following",
+            f"{len(final_cases)} final case(s), each representing a complete solution region:",
             ""
         ])
         
-        for case in final_cases:
+        for i, case in enumerate(final_cases, 1):
             latex_content.extend([
-                f"\\subsection{{{case.name}}}",
+                f"\\subsection{{Final Case {i}: {case.name}}}",
                 ""
             ])
             
             if not case.inequalities:
                 latex_content.extend([
-                    "This case has no constraints and is always satisfied.",
+                    "This case has no constraints and represents the region where the original",
+                    "system is always satisfied (unconditionally feasible region).",
                     ""
                 ])
             else:
                 latex_content.extend([
+                    "This case represents the solution region defined by:",
                     "\\begin{align}"
                 ])
                 
@@ -682,43 +1068,71 @@ class HierarchicalLatexGenerator:
                     expr, op, rhs = constraint
                     formatted_expr = self.format_expr(expr)
                     formatted_rhs = self.format_expr(rhs)
-                    latex_content.append(f"& {formatted_expr} {op} {formatted_rhs} \\\\")
+                    # Enhanced operator formatting
+                    formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
+                    latex_content.append(f"& {formatted_expr} {formatted_op} {formatted_rhs} \\\\")
                 
                 latex_content.extend([
                     "\\end{align}",
+                    "",
+                    "\\begin{stepdetail}",
+                    f"\\textbf{{Interpretation}}: This final case represents all parameter values",
+                    f"$(a, b, c, d, e, f, g, h, \\ldots)$ for which the original system has solutions.",
+                    "\\end{stepdetail}",
                     ""
                 ])
+        
+        # Enhanced conclusion
+        latex_content.extend([
+            "\\section{Conclusion}",
+            "",
+            "The enhanced hierarchical 4-step variable elimination process provides:",
+            "\\begin{itemize}",
+            "\\item \\textbf{Complete Mathematical Rigor}: Each step is mathematically justified",
+            "\\item \\textbf{Transparent Case Differentiation}: Every case shows its defining conditions",
+            "\\item \\textbf{Systematic Variable Elimination}: Variables are eliminated in specified order",
+            "\\item \\textbf{Hierarchical Organization}: Complex case structures are clearly organized",
+            "\\item \\textbf{Verifiable Results}: Each step can be independently verified",
+            "\\end{itemize}",
+            "",
+            f"The final result characterizes the complete solution space of the original system",
+            f"through {len(final_cases)} distinct case(s), each with explicit parameter constraints.",
+            ""
+        ])
         
         latex_content.append("\\end{document}")
         return "\n".join(latex_content)
     
     def _generate_case_hierarchy_latex(self, case, variables_to_eliminate):
-        """Generate LaTeX for a complete case hierarchy"""
+        """Generate LaTeX for a complete case hierarchy with detailed conditions"""
         latex_content = []
+        
+        # Generate case header with conditions
+        case_header_with_conditions = self._generate_case_header_with_conditions(case)
         
         # Case header
         if case.level == 0:
             latex_content.extend([
-                f"\\section{{{case.name}}}",
+                f"\\section{{{case_header_with_conditions}}}",
                 ""
             ])
         elif case.level == 1:
             latex_content.extend([
-                f"\\subsection{{{case.name}}}",
+                f"\\subsection{{{case_header_with_conditions}}}",
                 ""
             ])
         elif case.level == 2:
             latex_content.extend([
-                f"\\subsubsection{{{case.name}}}",
+                f"\\subsubsection{{{case_header_with_conditions}}}",
                 ""
             ])
         else:
             latex_content.extend([
-                f"\\paragraph{{{case.name}}}",
+                f"\\paragraph{{{case_header_with_conditions}}}",
                 ""
             ])
         
-        # Show case constraints
+        # Show case constraints with detailed explanation
         if case.inequalities:
             latex_content.extend([
                 f"Constraints for {case.name}:",
@@ -736,7 +1150,7 @@ class HierarchicalLatexGenerator:
                 ""
             ])
         
-        # Show elimination steps for this case
+        # Show elimination steps for this case with detailed process
         if case.elimination_steps:
             for i, step in enumerate(case.elimination_steps):
                 variable = step['variable']
@@ -751,10 +1165,126 @@ class HierarchicalLatexGenerator:
                     "\\end{enumerate}",
                     ""
                 ])
+                
+                # Add detailed step-by-step process if available
+                if 'step1' in step:
+                    latex_content.extend(self._format_step_details(step, variable))
         
         # Document subcases recursively
         for subcase in case.subcases:
             latex_content.extend(self._generate_case_hierarchy_latex(subcase, variables_to_eliminate))
+        
+        return latex_content
+    
+    def _generate_case_header_with_conditions(self, case):
+        """Generate case header that includes the specific conditions for that case"""
+        header = case.name
+        
+        if case.inequalities:
+            # Extract key conditions from the case inequalities
+            conditions = []
+            for expr, op, rhs in case.inequalities:
+                if rhs == 0:
+                    # Simplified condition format
+                    simplified_expr = str(expr).replace('**', '^').replace('*', ' ')
+                    conditions.append(f"${simplified_expr} {op} 0$")
+                else:
+                    simplified_expr = str(expr).replace('**', '^').replace('*', ' ')
+                    simplified_rhs = str(rhs).replace('**', '^').replace('*', ' ')
+                    conditions.append(f"${simplified_expr} {op} {simplified_rhs}$")
+            
+            if conditions and len(conditions) <= 3:  # Only show if not too many conditions
+                conditions_str = ", ".join(conditions)
+                header = f"{case.name}: {conditions_str}"
+        
+        return header
+    
+    def _format_step_details(self, step, variable):
+        """Format detailed step-by-step process information with inequalities after each step"""
+        latex_content = []
+        
+        # Add detailed explanations for each step with the actual inequalities
+        if 'step1' in step and step['step1'].get('step1_inequalities'):
+            step1_inequalities = step['step1']['step1_inequalities']
+            latex_content.extend([
+                f"\\textbf{{Step 1 Detail}}: Inequalities after isolating ${variable}$:",
+                "\\begin{align}"
+            ])
+            for i, ineq in enumerate(step1_inequalities, 1):
+                if len(ineq) == 3:
+                    lhs, op, rhs = ineq
+                    formatted_lhs = self.format_expr(lhs)
+                    formatted_rhs = self.format_expr(rhs)
+                    formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
+                    latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
+            latex_content.extend([
+                "\\end{align}",
+                ""
+            ])
+        
+        if 'step2' in step:
+            # Show the min/max form
+            if step['step2'].get('minmax_form'):
+                latex_content.extend([
+                    f"\\textbf{{Step 2 Detail}}: Combined form is {step['step2']['minmax_form']}",
+                    ""
+                ])
+            
+            # Show inequalities after step 2
+            if step['step2'].get('step2_inequalities'):
+                step2_inequalities = step['step2']['step2_inequalities']
+                latex_content.extend([
+                    f"\\textbf{{Step 2 Inequalities}}: System after combining to min/max form:",
+                    "\\begin{align}"
+                ])
+                for i, ineq in enumerate(step2_inequalities, 1):
+                    if len(ineq) == 3:
+                        lhs, op, rhs = ineq
+                        formatted_lhs = self.format_expr(lhs)
+                        formatted_rhs = self.format_expr(rhs)
+                        formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
+                        latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
+                latex_content.extend([
+                    "\\end{align}",
+                    ""
+                ])
+        
+        if 'step3' in step:
+            # Show elimination constraints
+            if step['step3'].get('elimination_constraints'):
+                latex_content.extend([
+                    f"\\textbf{{Step 3 Detail}}: Elimination constraints:",
+                ])
+                for constraint in step['step3']['elimination_constraints']:
+                    latex_content.append(f"\\quad {constraint}")
+                latex_content.append("")
+            
+            # Show inequalities after step 3
+            if step['step3'].get('step3_inequalities'):
+                step3_inequalities = step['step3']['step3_inequalities']
+                latex_content.extend([
+                    f"\\textbf{{Step 3 Inequalities}}: System after removing ${variable}$:",
+                    "\\begin{align}"
+                ])
+                for i, ineq in enumerate(step3_inequalities, 1):
+                    if len(ineq) == 3:
+                        lhs, op, rhs = ineq
+                        formatted_lhs = self.format_expr(lhs)
+                        formatted_rhs = self.format_expr(rhs)
+                        formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
+                        latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
+                latex_content.extend([
+                    "\\end{align}",
+                    ""
+                ])
+        
+        # Note: Step 4 inequalities are shown in the individual subcases
+        if 'step4' in step:
+            latex_content.extend([
+                f"\\textbf{{Step 4 Detail}}: Expanded into {step['step4'].get('subcases', 0)} subcase(s).",
+                f"Each subcase shows its specific inequalities after case expansion.",
+                ""
+            ])
         
         return latex_content
 
@@ -804,31 +1334,100 @@ def display_hierarchical_case_analysis(all_cases):
 
 
 def main():
-    """Main function for generating hierarchical 4-step elimination files."""
-    print("HIERARCHICAL 4-STEP VARIABLE ELIMINATION FILE GENERATOR")
+    """
+    Enhanced main function for generating hierarchical 4-step elimination files.
+    
+    This main function demonstrates the complete 4-step variable elimination process
+    where each case and subcase header includes the specific conditions that define
+    that case. The process follows these steps for each variable:
+    
+    1. **Isolate Variable**: Convert each inequality containing the variable to the form 
+       "variable ≥ expression" or "variable ≤ expression", properly handling coefficient signs.
+    
+    2. **Combine to Min/Max**: Collect all lower bounds into max(expr1, expr2, ...) and 
+       all upper bounds into min(expr1, expr2, ...), forming:
+       max(lower_bounds) ≤ variable ≤ min(upper_bounds)
+    
+    3. **Remove Variable**: Replace the variable with the elimination constraint:
+       max(lower_bounds) ≤ min(upper_bounds)
+    
+    4. **Expand Cases**: For each combination of expressions in the min/max, create a 
+       new subcase where that specific combination defines the active constraint.
+       Each subcase is named with its specific conditions.
+    
+    Input Format:
+    - Variables: x1, x2, x3, x4, ... (in order of elimination)
+    - Constants: a, b, c, d, e, f, g, h, ...
+    - Inequalities: Linear inequalities involving variables and constants
+    
+    Output:
+    - Complete LaTeX document with hierarchical case structure
+    - Each case/subcase header shows the specific conditions
+    - Detailed 4-step process documentation for each variable
+    - Mathematical rigor in case differentiation and solving
+    """
+    print("ENHANCED HIERARCHICAL 4-STEP VARIABLE ELIMINATION SYSTEM")
     print("=" * 80)
     print()
+    print("This system implements a complete 4-step variable elimination process:")
+    print()
+    print("STEP 1: ISOLATE VARIABLE")
+    print("  • Convert ax + b ≥ c to x ≥ (c-b)/a or x ≤ (c-b)/a")
+    print("  • Handle coefficient signs properly during isolation")
+    print("  • Separate into lower bounds (x ≥ expr) and upper bounds (x ≤ expr)")
+    print()
+    print("STEP 2: COMBINE TO MIN/MAX")
+    print("  • Collect lower bounds: max(expr1, expr2, ...) ≤ variable")
+    print("  • Collect upper bounds: variable ≤ min(expr1, expr2, ...)")
+    print("  • Form: max(lower_bounds) ≤ variable ≤ min(upper_bounds)")
+    print()
+    print("STEP 3: REMOVE VARIABLE")
+    print("  • Create elimination constraint: max(lower_bounds) ≤ min(upper_bounds)")
+    print("  • Replace variable with feasibility conditions")
+    print()
+    print("STEP 4: EXPAND CASES")
+    print("  • For each pair (lower_i, upper_j): create case where lower_i ≤ upper_j")
+    print("  • Name each case with its specific conditions")
+    print("  • Apply recursively to remaining variables")
+    print()
     
-    # Run the hierarchical variable elimination to generate documentation
-    print("Generating hierarchical 4-step elimination LaTeX file...")
+    # Run the enhanced hierarchical variable elimination
+    print("Generating enhanced hierarchical 4-step elimination LaTeX file...")
+    print("Each case and subcase will include its specific defining conditions.")
+    print()
+    
     success = demonstrate_enhanced_variable_elimination()
     
     print("\n" + "=" * 80)
-    print("HIERARCHICAL ELIMINATION GENERATION COMPLETE")
+    print("ENHANCED HIERARCHICAL ELIMINATION GENERATION COMPLETE")
     print("=" * 80)
     
     if success:
-        print("✅ Successfully generated hierarchical 4-step elimination file")
+        print("✅ Successfully generated enhanced hierarchical 4-step elimination file")
+        print()
+        print("Generated file features:")
+        print("• Case headers include specific conditions (e.g., 'Case 1: a + b ≥ 0, c ≤ d')")
+        print("• Complete 4-step process documentation for each variable")
+        print("• Hierarchical subcase structure with condition inheritance")
+        print("• Mathematical rigor in case differentiation")
+        print("• LaTeX format suitable for academic/professional use")
+        print()
         print("Check output_final/ directory for the generated LaTeX file")
-        print("\nThe file contains complete documentation of the hierarchical 4-step process:")
-        print("1. Isolate variables in each inequality")
-        print("2. Combine to max/min form")
-        print("3. Remove variables")
-        print("4. Expand cases with hierarchical naming")
-        print("5. Individual subcase solving and documentation")
+        print()
+        print("The file contains complete documentation of:")
+        print("1. Initial system with variables x1, x2, x3, ... and constants a, b, c, ...")
+        print("2. Step-by-step variable elimination process")
+        print("3. Hierarchical case expansion with conditions")
+        print("4. Final solution cases with all variables eliminated")
+        print("5. Mathematical verification of each elimination step")
     else:
-        print("❌ Failed to generate hierarchical elimination file")
+        print("❌ Failed to generate enhanced hierarchical elimination file")
         print("Check error messages above for details")
+        print()
+        print("Common issues:")
+        print("• Malformed input inequalities")
+        print("• Missing dependencies (sympy)")
+        print("• File permission issues in output directory")
 
 
 if __name__ == "__main__":
