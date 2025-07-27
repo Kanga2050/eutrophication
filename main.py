@@ -16,9 +16,10 @@ Essential Components:
 Author: Rational Inequality Solver Team
 Version: Hierarchical Case Management with Descriptive Naming
 """
-from sympy import symbols, simplify, solve, latex
+from sympy import symbols, simplify, solve, latex, Max, Min
 from datetime import datetime
 import os
+import traceback
 from collections import defaultdict
 
 # Import necessary modules for case processing
@@ -119,10 +120,11 @@ class HierarchicalCase:
 class HierarchicalCaseEliminator:
     """Implements 4-step variable elimination with hierarchical case management"""
     
-    def __init__(self):
+    def __init__(self, use_sign_analysis=True):
         self.naming_system = CaseNamingSystem()
         self.all_cases = []
         self.elimination_log = []
+        self.use_sign_analysis = use_sign_analysis
     
     def eliminate_variables_hierarchical(self, inequalities, variables_to_eliminate):
         """
@@ -228,46 +230,18 @@ class HierarchicalCaseEliminator:
                 original_eq = f"{expr} {op} {rhs}"
                 print(f"          Original: {original_eq}")
                 
-                # Move terms to isolate the variable
-                equation = expr - rhs
-                print(f"          Rearranging: {equation} {op} 0")
+                # Use the full solver to handle all types of inequalities
+                bound_results = self._solve_inequality_for_variable(expr, op, rhs, variable)
                 
-                # Get coefficient and constant part
-                coeff = equation.coeff(var_symbol, 1)
-                constant_part = equation - coeff * var_symbol
-                
-                if coeff == 0 or coeff is None:
-                    print(f"          ERROR: Coefficient of {variable} is zero or undefined")
-                    continue
-                
-                print(f"          Coefficient of {variable}: {coeff}")
-                print(f"          Constant part: {constant_part}")
-                print(f"          Form: {coeff}*{variable} + ({constant_part}) {op} 0")
-                
-                # Isolate the variable
-                bound_result = self._solve_linear_inequality_for_variable(expr, op, rhs, variable)
-                
-                if bound_result:
-                    bound_type, bound_expr, new_op = bound_result
-                    isolated_form = f"{variable} {new_op} {bound_expr}"
-                    print(f"          Solving for {variable}: {isolated_form}")
-                    
-                    # Show the sign analysis for coefficient
-                    try:
-                        if coeff.is_positive:
-                            print(f"          Sign analysis: coefficient {coeff} > 0, inequality direction preserved")
-                        elif coeff.is_negative:
-                            print(f"          Sign analysis: coefficient {coeff} < 0, inequality direction flipped")
-                        else:
-                            print(f"          Sign analysis: coefficient {coeff} sign unknown, assuming positive")
-                    except:
-                        # For symbolic coefficients, we can't determine sign
-                        print(f"          Sign analysis: coefficient {coeff} is symbolic, assuming positive")
-                    
-                    isolated_inequalities.append((bound_type, bound_expr, new_op))
-                    # Add to step1 inequalities as (variable, new_op, bound_expr) for consistency
-                    step1_inequalities.append((var_symbol, new_op, bound_expr))
-                    print(f"          RESULT: {isolated_form} ({bound_type} bound)")
+                if bound_results:
+                    for bound_type, bound_expr, new_op in bound_results:
+                        isolated_form = f"{variable} {new_op} {bound_expr}"
+                        print(f"          Solving for {variable}: {isolated_form}")
+                        
+                        isolated_inequalities.append((bound_type, bound_expr, new_op))
+                        # Add to step1 inequalities as (variable, new_op, bound_expr) for consistency
+                        step1_inequalities.append((var_symbol, new_op, bound_expr))
+                        print(f"          RESULT: {isolated_form} ({bound_type} bound)")
                 else:
                     print(f"          ERROR: Could not isolate {variable}")
                 print()
@@ -689,53 +663,38 @@ class HierarchicalCaseEliminator:
         
         return subcases
     
-    def _solve_linear_inequality_for_variable(self, expr, op, rhs, variable):
-        """Solve linear inequality for variable"""
-        from sympy import symbols, solve, simplify
+    def _solve_inequality_for_variable(self, expr, op, rhs, variable):
+        """Solve inequality for variable using all solver.py functionality"""
+        from sympy import symbols
         var_symbol = symbols(variable)
         
+        # Convert to standard form: expr op rhs -> (expr - rhs) op 0
+        standard_expr = expr - rhs
+        
         try:
-            equation = expr - rhs
-            coeff = equation.coeff(var_symbol, 1)
-            constant_part = equation - coeff * var_symbol
+            # Use the full solver from solver.py
+            solver_output = solve_rational_ineq_full(standard_expr, var_symbol, op, self.use_sign_analysis)
             
-            if coeff == 0 or coeff is None:
-                return None
-                
-            bound_expr = simplify(-constant_part / coeff)
+            # Extract bounds from solver output
+            bounds = []
+            for output in solver_output:
+                cases = isolate_cases_from_solver([output])
+                for label, case_bounds in cases:
+                    for bound_expr, direction in case_bounds:
+                        if direction == '>':
+                            bounds.append(('lower', bound_expr, '>='))
+                        else:
+                            bounds.append(('upper', bound_expr, '<='))
             
-            # Handle inequality direction based on coefficient sign
-            if op in ['>=', '>']:
-                # For a*x >= b, if a > 0: x >= b/a, if a < 0: x <= b/a
-                try:
-                    if coeff.is_positive:
-                        return 'lower', bound_expr, '>=' if op == '>=' else '>'
-                    elif coeff.is_negative:
-                        return 'upper', bound_expr, '<=' if op == '>=' else '<'
-                    else:
-                        # Coefficient sign is unknown, assume positive for simplicity
-                        return 'lower', bound_expr, '>=' if op == '>=' else '>'
-                except:
-                    # If we can't determine the sign, assume positive
-                    return 'lower', bound_expr, '>=' if op == '>=' else '>'
-                    
-            elif op in ['<=', '<']:
-                # For a*x <= b, if a > 0: x <= b/a, if a < 0: x >= b/a
-                try:
-                    if coeff.is_positive:
-                        return 'upper', bound_expr, '<=' if op == '<=' else '<'
-                    elif coeff.is_negative:
-                        return 'lower', bound_expr, '>=' if op == '<=' else '>'
-                    else:
-                        # Coefficient sign is unknown, assume positive for simplicity
-                        return 'upper', bound_expr, '<=' if op == '<=' else '<'
-                except:
-                    # If we can't determine the sign, assume positive
-                    return 'upper', bound_expr, '<=' if op == '<=' else '<'
-                    
+            return bounds
+            
         except Exception as e:
-            print(f"        Error isolating {variable}: {e}")
+            print(f"        Error solving inequality for {variable}: {e}")
             return None
+    
+    def _solve_linear_inequality_for_variable(self, expr, op, rhs, variable):
+        """Legacy method for linear solving - delegates to full solver"""
+        return self._solve_inequality_for_variable(expr, op, rhs, variable)
 
 
 def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_eliminate=None):
@@ -831,7 +790,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
     
     try:
         # Create enhanced hierarchical eliminator
-        eliminator = HierarchicalCaseEliminator()
+        eliminator = HierarchicalCaseEliminator(use_sign_analysis=True)
         
         # Perform hierarchical elimination with enhanced documentation
         final_cases = eliminator.eliminate_variables_hierarchical(inequalities, variables_to_eliminate)
@@ -1333,6 +1292,255 @@ def display_hierarchical_case_analysis(all_cases):
     print("="*60)
 
 
+def test_comprehensive_elimination():
+    """
+    Test the enhanced hierarchical variable elimination with various types of inequalities.
+    
+    This function tests:
+    1. Linear inequalities
+    2. Quadratic inequalities  
+    3. Rational inequalities
+    4. Mixed systems with multiple variables
+    5. Systems with constants
+    """
+    print("=" * 80)
+    print("COMPREHENSIVE TESTING OF ENHANCED VARIABLE ELIMINATION")
+    print("=" * 80)
+    
+    test_cases = [
+        {
+            'name': 'Linear System Test',
+            'description': 'Simple linear inequalities with two variables',
+            'inequalities': [
+                "x1 + 2*x2 >= a",
+                "x1 - x2 <= b", 
+                "x2 >= c"
+            ],
+            'variables': ['x1', 'x2']
+        },
+        {
+            'name': 'Quadratic System Test',
+            'description': 'Quadratic inequality with linear constraints',
+            'inequalities': [
+                "x1**2 - 4 >= 0",
+                "x1 + x2 <= a",
+                "x2 >= b"
+            ],
+            'variables': ['x1', 'x2']
+        },
+        {
+            'name': 'Rational System Test', 
+            'description': 'Rational inequality with linear constraints',
+            'inequalities': [
+                "(x1 + 1)/(x1 - 2) >= 0",
+                "x1 + x2 <= a",
+                "x2 >= b"
+            ],
+            'variables': ['x1', 'x2']
+        },
+        {
+            'name': 'Mixed Complex System Test',
+            'description': 'Complex system with multiple types of inequalities',
+            'inequalities': [
+                "x1**2 + a*x1 + b >= 0",
+                "(x1 + x2)/(x2 - c) <= d",
+                "x2 + e >= f",
+                "x1 - x2 >= g"
+            ],
+            'variables': ['x1', 'x2']
+        },
+        {
+            'name': 'Three Variable System Test',
+            'description': 'System with three variables requiring sequential elimination',
+            'inequalities': [
+                "x1 + x2 + x3 >= a",
+                "x1 - x2 <= b",
+                "x2 + x3 >= c", 
+                "x3 <= d"
+            ],
+            'variables': ['x1', 'x2', 'x3']
+        }
+    ]
+    
+    results = []
+    
+    for i, test_case in enumerate(test_cases, 1):
+        print(f"\nTEST CASE {i}: {test_case['name']}")
+        print(f"Description: {test_case['description']}")
+        print(f"Inequalities: {test_case['inequalities']}")
+        print(f"Variables to eliminate: {test_case['variables']}")
+        print("-" * 60)
+        
+        try:
+            success = demonstrate_enhanced_variable_elimination(
+                inequalities=test_case['inequalities'],
+                variables_to_eliminate=test_case['variables']
+            )
+            
+            results.append({
+                'test_case': test_case['name'],
+                'success': success,
+                'error': None
+            })
+            
+            if success:
+                print(f"✅ Test case {i} completed successfully")
+            else:
+                print(f"❌ Test case {i} failed")
+                
+        except Exception as e:
+            print(f"❌ Test case {i} failed with error: {e}")
+            traceback.print_exc()
+            results.append({
+                'test_case': test_case['name'],
+                'success': False,
+                'error': str(e)
+            })
+        
+        print("-" * 60)
+    
+    # Summary
+    print("\n" + "=" * 80)
+    print("TEST SUMMARY")
+    print("=" * 80)
+    
+    successful = sum(1 for r in results if r['success'])
+    total = len(results)
+    
+    print(f"Total tests: {total}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {total - successful}")
+    print()
+    
+    for result in results:
+        status = "✅ PASS" if result['success'] else "❌ FAIL"
+        print(f"{status}: {result['test_case']}")
+        if result['error']:
+            print(f"    Error: {result['error']}")
+    
+    print("\n" + "=" * 80)
+    print("COMPREHENSIVE TESTING COMPLETED")
+    print("=" * 80)
+    
+    return results
+
+
+def validate_latex_output():
+    """
+    Validate that generated LaTeX files contain expected content.
+    """
+    print("\n" + "=" * 80)
+    print("VALIDATING LATEX OUTPUT")
+    print("=" * 80)
+    
+    output_dir = "/workspaces/codespaces-blank/output_final"
+    
+    if not os.path.exists(output_dir):
+        print("❌ Output directory does not exist")
+        return False
+    
+    latex_files = [f for f in os.listdir(output_dir) if f.endswith('.tex')]
+    
+    if not latex_files:
+        print("❌ No LaTeX files found in output directory")
+        return False
+    
+    print(f"Found {len(latex_files)} LaTeX files:")
+    
+    validation_results = []
+    
+    for filename in latex_files:
+        filepath = os.path.join(output_dir, filename)
+        print(f"\nValidating: {filename}")
+        
+        try:
+            with open(filepath, 'r') as f:
+                content = f.read()
+            
+            # Check for required LaTeX elements
+            checks = [
+                ('documentclass', '\\documentclass' in content),
+                ('amsmath package', '\\usepackage{amsmath}' in content),
+                ('title', '\\title{' in content),
+                ('begin document', '\\begin{document}' in content),
+                ('end document', '\\end{document}' in content),
+                ('section headers', '\\section{' in content),
+                ('math environments', '\\begin{align}' in content or '\\begin{equation}' in content),
+                ('hierarchical cases', 'Case ' in content),
+                ('variable elimination', 'Eliminate' in content or 'eliminate' in content),
+                ('4-step process', 'Step 1' in content and 'Step 2' in content and 'Step 3' in content and 'Step 4' in content)
+            ]
+            
+            passed_checks = sum(1 for _, check in checks if check)
+            total_checks = len(checks)
+            
+            print(f"  Validation checks: {passed_checks}/{total_checks}")
+            
+            for check_name, passed in checks:
+                status = "✅" if passed else "❌"
+                print(f"    {status} {check_name}")
+            
+            validation_results.append({
+                'filename': filename,
+                'passed_checks': passed_checks,
+                'total_checks': total_checks,
+                'success': passed_checks == total_checks
+            })
+            
+        except Exception as e:
+            print(f"  ❌ Error reading file: {e}")
+            validation_results.append({
+                'filename': filename,
+                'passed_checks': 0,
+                'total_checks': 10,
+                'success': False,
+                'error': str(e)
+            })
+    
+    # Summary
+    print("\n" + "-" * 60)
+    print("LATEX VALIDATION SUMMARY")
+    print("-" * 60)
+    
+    successful_files = sum(1 for r in validation_results if r['success'])
+    total_files = len(validation_results)
+    
+    print(f"Total LaTeX files: {total_files}")
+    print(f"Fully validated: {successful_files}")
+    print(f"Failed validation: {total_files - successful_files}")
+    
+    return successful_files == total_files
+
+
+if __name__ == "__main__":
+    """
+    Run comprehensive tests and validation.
+    """
+    print("STARTING COMPREHENSIVE TESTING AND VALIDATION")
+    print("=" * 80)
+    
+    # Run comprehensive tests
+    test_results = test_comprehensive_elimination()
+    
+    # Validate LaTeX output
+    latex_validation = validate_latex_output()
+    
+    print("\n" + "=" * 80)
+    print("FINAL SUMMARY")
+    print("=" * 80)
+    
+    total_tests = len(test_results)
+    successful_tests = sum(1 for r in test_results if r['success'])
+    
+    print(f"Test Results: {successful_tests}/{total_tests} passed")
+    print(f"LaTeX Validation: {'PASSED' if latex_validation else 'FAILED'}")
+    
+    if successful_tests == total_tests and latex_validation:
+        print("🎉 ALL TESTS PASSED - SYSTEM WORKING CORRECTLY")
+    else:
+        print("⚠️  SOME TESTS FAILED - REVIEW RESULTS ABOVE")
+
+
 def main():
     """
     Enhanced main function for generating hierarchical 4-step elimination files.
@@ -1366,6 +1574,8 @@ def main():
     - Detailed 4-step process documentation for each variable
     - Mathematical rigor in case differentiation and solving
     """
+    # Run the enhanced demonstration
+    demonstrate_enhanced_variable_elimination()
     print("ENHANCED HIERARCHICAL 4-STEP VARIABLE ELIMINATION SYSTEM")
     print("=" * 80)
     print()
