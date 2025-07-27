@@ -1,6 +1,39 @@
 """
-LaTeX processor module for formatting and saving mathematical expressions.
-Handles LaTeX output generation, formatting, and file writing.
+LaTeX Processing Module for Mathematical Expression Formatting
+
+This module provides comprehensive LaTeX processing capabilities for the rational
+inequality solver, handling the conversion of mathematical results into properly
+formatted LaTeX documents suitable for academic and professional use.
+
+Key Features:
+- **Professional LaTeX Generation**: Create complete LaTeX documents with proper structure
+- **Expression Formatting**: Handle complex mathematical expressions with line breaks
+- **Multiple Output Formats**: Generate both raw LaTeX files and complete documents
+- **Case Label Cleaning**: Simplify verbose case descriptions for clarity
+- **File Management**: Automatic directory creation and organized file saving
+- **Error Handling**: Robust processing with comprehensive error reporting
+
+Functions:
+- clean_case_label(): Simplify verbose case descriptions
+- format_latex_expression(): Handle long expressions with proper line breaks
+- create_latex_document(): Generate complete LaTeX documents with headers
+- clean_latex_result(): Process full LaTeX results for readability
+- save_latex_to_file(): Save formatted LaTeX documents
+- process_and_save_latex(): Main processing function for result sets
+
+Output Formats:
+1. **Raw LaTeX Files** (.txt): Contains unprocessed LaTeX expressions for copying
+2. **Complete Documents** (.tex): Ready-to-compile LaTeX documents with full structure
+3. **Console Summaries**: Simplified output for terminal display
+
+Document Structure:
+- Professional document headers with title and author
+- Organized sections for different types of results
+- Proper mathematical formatting with align environments
+- Comprehensive notes and explanations
+
+Author: Rational Inequality Solver Team
+Version: Enhanced LaTeX Processing with Document Generation
 """
 import os
 import re
@@ -224,7 +257,7 @@ def clean_bound_expression(bound_expr):
     return bound_expr
 
 
-def save_latex_to_file(latex_content, filename="inequality_solutions.tex", output_dir="output"):
+def save_latex_to_file(latex_content, filename="inequality_solutions.tex", output_dir="output_final"):
     """
     Save LaTeX content to a file.
     
@@ -250,7 +283,7 @@ def save_latex_to_file(latex_content, filename="inequality_solutions.tex", outpu
         raise IOError(f"Failed to save LaTeX file: {e}")
 
 
-def save_plain_latex_results(results, filename="latex_results.txt", output_dir="output"):
+def save_plain_latex_results(results, filename="latex_results.txt", output_dir="output_final"):
     """
     Save clean, copy-pasteable LaTeX results to a plain text file.
     
@@ -431,7 +464,7 @@ def _format_bounds(bound_str, strict=True):
     return bound_str
 
 
-def save_simple_latex_results(results, filename="latex_simple.txt", output_dir="output"):
+def save_simple_latex_results(results, filename="latex_simple.txt", output_dir="output_final"):
     """
     Save simplified, mathematical LaTeX results that focus on the core inequalities.
     
@@ -562,7 +595,7 @@ def _clean_mathematical_expr(expr):
     return expr
 
 
-def process_and_save_latex(results, base_filename="inequality_solutions", output_dir="output"):
+def process_and_save_latex(results, base_filename="inequality_solutions", output_dir="output_final"):
     """
     Process LaTeX results and save both formatted document and clean copy-paste versions.
     

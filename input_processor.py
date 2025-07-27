@@ -1,5 +1,38 @@
 """
-Input processing module for handling different inequality input formats.
+Input Processing Module for Rational Inequality Solver
+
+This module handles the processing and validation of inequality inputs in various formats,
+converting them into a standardized internal representation that the solver can work with.
+It provides flexible input parsing while ensuring mathematical correctness and consistency.
+
+Key Features:
+- **Multiple Input Formats**: Support for tuples, strings, and mixed formats
+- **Automatic Conversion**: Convert strings to SymPy expressions with validation
+- **Operator Validation**: Ensure inequality operators are mathematically valid
+- **Error Handling**: Comprehensive error reporting for malformed inputs
+- **Standardization**: Convert all inputs to consistent (lhs, op, rhs) format
+
+Supported Input Formats:
+1. **(expression, operator)** tuples: (x**2 - 1, ">=")
+2. **(lhs, operator, rhs)** tuples: (x**2, ">=", 1)
+3. **Full string format**: "x**2 - 1 >= 0"
+4. **Mixed formats**: Combinations of the above in a single list
+
+Functions:
+- process_inequalities(): Main processing function for inequality lists
+- validate_processed_inequalities(): Validation function for processed results
+- _parse_string_inequality(): String parsing helper function
+- _parse_full_string_inequality(): Complete string inequality parser
+
+Processing Steps:
+1. **Format Detection**: Identify input format for each inequality
+2. **Parsing**: Extract left-hand side, operator, and right-hand side
+3. **Conversion**: Convert string expressions to SymPy symbolic expressions
+4. **Validation**: Check operator validity and expression structure
+5. **Standardization**: Return consistent (lhs, op, rhs) format
+
+Author: Rational Inequality Solver Team
+Version: Enhanced Input Validation and Format Support
 """
 from sympy import sympify
 

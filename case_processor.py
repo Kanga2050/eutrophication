@@ -1,5 +1,32 @@
 """
-Case processing module for handling solver output and generating LaTeX bounds.
+Case Processing Module for Rational Inequality Solver
+
+This module handles the processing of solver output and generates properly formatted
+LaTeX bounds expressions. It serves as the bridge between the core solver engine
+and the output formatting system, combining multiple inequality cases using
+Cartesian products to generate comprehensive solution sets.
+
+Key Features:
+- **Case Extraction**: Parse solver output into structured case data
+- **Bound Generation**: Extract upper and lower bounds from case analysis
+- **Cartesian Product Combination**: Generate all valid case combinations
+- **LaTeX Formatting**: Create professional mathematical output
+- **Sign Analysis Integration**: Support for optimized case filtering
+
+Functions:
+- isolate_cases_from_solver(): Extract structured data from raw solver output
+- generate_case_labeled_bounds(): Main interface for generating LaTeX bounds
+- _format_latex_output(): Format final results as LaTeX expressions
+
+Algorithm:
+1. **Parse Solver Output**: Extract case labels and bound expressions
+2. **Separate Cases**: Distinguish between variable-dependent and independent cases
+3. **Generate Combinations**: Use Cartesian product for all valid case combinations  
+4. **Extract Bounds**: Identify upper and lower bounds for the target variable
+5. **Format Output**: Generate LaTeX with proper mathematical notation
+
+Author: Rational Inequality Solver Team
+Version: Enhanced with Sign Analysis Support
 """
 import re
 from sympy import simplify

@@ -1,16 +1,79 @@
 """
-Example configurations for the rational inequality solver.
-Contains various test cases and example problems.
+Example Library for Rational Inequality Solver
+
+This module provides a comprehensive collection of test cases and example problems
+that demonstrate the capabilities of the rational inequality solver. Examples range
+from simple polynomial inequalities to complex rational expressions with multiple
+parameters, showcasing different features and use cases.
+
+Example Categories:
+- **Simple Examples**: Basic polynomial and linear inequalities  
+- **Rational Function Examples**: Complex rational expressions with singularities
+- **Parametric Examples**: Systems involving symbolic parameters
+- **Multi-variable Examples**: Systems requiring variable elimination
+- **Edge Cases**: Boundary conditions and special mathematical scenarios
+
+Functions:
+- get_[type]_example(): Return specific example types
+- run_example(): Execute and display results for named examples
+- run_all_examples(): Comprehensive demonstration of all example types
+
+Usage:
+    from examples import run_example, get_simple_quadratic_example
+    
+    # Run a specific example
+    run_example('quadratic')
+    
+    # Get example data for custom processing
+    ineqs = get_simple_quadratic_example()
 
 For multi-variable elimination examples, see:
 - variable_eliminator.py (VariableEliminationSolver.demo() method)  
-- unified_main.py (complete demonstrations)
+- main.py (complete demonstrations)
+
+Author: Rational Inequality Solver Team
+Version: Comprehensive Example Library
 """
 from sympy import symbols
 
 
 def get_complex_example():
-    """Returns the complex example from the original test.py file."""
+    """
+    Return the complex multi-parameter rational inequality example.
+    
+    This example demonstrates the solver's ability to handle sophisticated
+    rational expressions involving multiple symbolic parameters. It represents
+    one of the most challenging test cases for the solver system.
+    
+    Mathematical Structure:
+    - **Complex Rational Expression**: Multi-term rational function with nested operations
+    - **Multiple Parameters**: Uses symbols a, b, c, d, e, f, g as parameters
+    - **Mixed Operations**: Combines addition, subtraction, multiplication, division
+    - **Parameter Constraints**: Includes constraints not involving the main variable
+    
+    System Components:
+    1. **Primary Inequality**: Complex rational expression ≤ 0
+       - Numerator: (a*x - c + b - 1) with parameter scaling
+       - Denominator: (a*b*d) with nested parameter products
+       - Additional terms: Multiple rational components
+    
+    2. **Secondary Inequality**: (x + 1)*(x - 2)/(x + 3) ≥ 0
+       - Simpler rational form for comparison
+       - Clear factored structure
+    
+    3. **Parameter Constraint**: a + b ≤ c
+       - Establishes relationships between parameters
+       - Tests parameter handling in case analysis
+    
+    Returns:
+        list: List of inequality tuples in (expression, operator) or (lhs, operator, rhs) format
+        
+    Use Cases:
+        - Testing complex rational expression parsing
+        - Demonstrating multi-parameter case analysis
+        - Validating LaTeX output for complex expressions
+        - Benchmarking solver performance on challenging inputs
+    """
     x, a, b, c, d, e, f, g = symbols('x a b c d e f g')
     
     return [

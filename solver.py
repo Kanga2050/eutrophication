@@ -1,6 +1,33 @@
 """
-Core solver module for rational inequalities.
-Contains the main solving logic and case generation with sign analysis optimization.
+Core Rational Inequality Solver Engine
+
+This module contains the main solving logic for rational inequalities using symbolic
+branch expansion and case-based analysis. It handles complex rational expressions
+by analyzing numerator and denominator separately, considering all possible sign
+combinations to generate complete solution sets.
+
+Key Features:
+- **Sign Analysis Integration**: Optional optimization that reduces impossible cases
+- **Comprehensive Case Generation**: Analyzes all possible sign combinations
+- **Polynomial Support**: Handles linear, quadratic, and higher-order polynomials
+- **Parameter Support**: Works with symbolic parameters in addition to variables
+- **Mathematical Rigor**: Ensures all mathematically valid cases are considered
+
+Algorithm Overview:
+1. **Expression Decomposition**: Separate rational expression into numerator/denominator
+2. **Sign Analysis** (optional): Determine if certain cases can be eliminated early
+3. **Case Generation**: For each possible sign combination of numerator and denominator
+4. **Polynomial Solving**: Solve resulting polynomial inequalities for each case
+5. **Result Formatting**: Generate descriptive case labels with mathematical reasoning
+
+Supported Operations:
+- Inequality operators: <=, <, >=, >
+- Linear polynomials: ax + b <op> 0
+- Quadratic polynomials: ax² + bx + c <op> 0
+- Rational expressions: P(x)/Q(x) <op> 0
+
+Author: Rational Inequality Solver Team
+Version: Enhanced with Sign Analysis Integration
 """
 from sympy import symbols, expand, simplify
 from sign_analyzer import SignAnalyzer, create_default_analyzer, apply_sign_analysis_to_solver_output

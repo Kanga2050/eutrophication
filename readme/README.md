@@ -1,162 +1,177 @@
-# Rational Inequality Solver
+# Unified Rational Inequality Solver
 
-A modular Python package for solving rational inequalities symbolically with LaTeX output formatting.
+A comprehensive solver for rational inequalities with both traditional solving and advanced variable elimination capabilities.
 
 ## Features
 
-- Solve rational inequalities with symbolic parameters
-- Handle linear, quadratic, and higher-order polynomials
-- Generate case-based solutions with LaTeX formatting
-- Modular architecture for easy extension
-- Multiple input formats supported
-- Comprehensive error handling and validation
+### Original Solver
+- Solves rational inequalities for a single variable
+- Generates min/max expressions with case analysis
+- Produces detailed LaTeX documentation
+- Handles complex multi-parameter systems
 
-## Project Structure
+### Variable Elimination (NEW)
+- Sequential elimination of multiple variables
+- 4-step process for each elimination:
+  1. Original inequalities
+  2. Min/max expressions with variable
+  3. Min/max expressions without variable  
+  4. Final split inequalities
+- Complete LaTeX documentation with step-by-step process
+- Preserves parameter constraints
+
+## Quick Start
+
+### Basic Usage
+
+```python
+# Original solver (single variable analysis)
+from solver import solve_rational_ineq_full
+from case_processor import generate_case_labeled_bounds
+
+# Variable elimination (multi-variable systems)
+from variable_eliminator import solve_with_variable_elimination
+
+# Eliminate variables x1, x2, x3 from a system
+result = solve_with_variable_elimination(
+    inequalities=["x1 + x2 >= 0", "x2 - x3 <= 1"],
+    variables_to_eliminate=['x1', 'x2', 'x3']
+)
+```
+
+### Unified Demonstration
+
+```bash
+python main.py
+```
+
+This runs both the original solver and variable elimination on example systems, showing the capabilities of each approach.
+
+## File Structure
+
+### Core Components
+- `solver.py` - Original rational inequality solver
+- `case_processor.py` - Case analysis and bound generation
+- `input_processor.py` - Input validation and processing
+- `latex_processor.py` - LaTeX output generation
+- `variable_eliminator.py` - **NEW** Variable elimination solver
+- `main.py` - **Main demonstration script**
+
+### Examples and Demos
+- `main.py` - Original solver examples
+- `examples.py` - Test case definitions
+- `demo_optimized.py` - Optimized solver demonstration
+
+### Configuration and Utilities
+- `config/settings.py` - Configuration settings
+- `sign_analyzer.py` - Sign analysis utilities
+- `requirements.txt` - Python dependencies
+
+### Output Directories
+- `output_final/` - All LaTeX and summaries
+- `output_final/` - **NEW** Complete variable elimination documentation
+
+## Key Improvements
+
+### Unified Architecture
+- Eliminated redundancy between enhanced_solver and main codebase
+- Single integrated system with complementary approaches
+- Clear separation of concerns between solving strategies
+
+### Enhanced Documentation
+- Complete LaTeX generation for both approaches
+- Step-by-step elimination process documentation
+- Professional mathematical formatting
+
+### Comprehensive Testing
+- Original solver test cases preserved
+- Variable elimination test coverage
+- Unified demonstration examples
+
+## Usage Examples
+
+### Example 1: Original Solver
+```python
+from main import main
+main()  # Runs original solver on complex examples
+```
+
+### Example 2: Variable Elimination
+```python
+from variable_eliminator import solve_with_variable_elimination
+
+# Multi-variable system
+inequalities = [
+    "x1**2 + x2 - 4 >= 0",
+    "x1 + 2*x2 + x3 >= 1", 
+    "x2 - x3 <= 2"
+]
+
+result = solve_with_variable_elimination(
+    inequalities=inequalities,
+    variables_to_eliminate=['x1', 'x2', 'x3'],
+    save_latex=True
+)
+```
+
+### Example 3: Comparison
+```python
+from main import main
+main()  # Shows both approaches on test systems
+```
+
+## Dependencies
 
 ```
-├── solver.py           # Core solving logic
-├── case_processor.py   # Case processing and LaTeX formatting
-├── input_processor.py  # Input parsing and validation
-├── main.py            # Main execution script
-├── examples.py        # Example configurations and test cases
-├── script.py          # Legacy compatibility module
-└── requirements.txt   # Dependencies
+sympy>=1.12
+itertools (built-in)
+datetime (built-in)
+os (built-in)
 ```
 
-## Installation
-
+Install with:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Quick Start
+## When to Use Each Approach
 
-### Running the Main Example
+### Original Solver
+- When you need min/max expressions for a single variable
+- For analysis of solution structure in terms of parameters
+- When working with complex rational expressions
 
-```python
-python main.py
-```
+### Variable Elimination  
+- When you want to systematically remove multiple variables
+- For dimensional reduction of constraint systems
+- When you need complete step-by-step elimination documentation
+- For optimization problems requiring constraint simplification
 
-### Running Specific Examples
+## Output Files
 
-```python
-from examples import run_example, print_example_info
+### Original Solver Output
+- `output_final/main_example_solutions.tex` - Complete LaTeX solutions
+- `output_final/main_example_solutions_simple.txt` - Text summaries
+- `output_final/main_example_solutions_raw.txt` - Raw solver output
 
-# See available examples
-print_example_info()
+### Variable Elimination Output
+- `output_final/variable_elimination_TIMESTAMP.tex` - Complete elimination steps
+- `output_final/variable_elimination_TIMESTAMP_summary.txt` - Process summary
 
-# Run a specific example
-run_example('quadratic')
-```
+## Advanced Features
 
-### Custom Usage
+- **Sign Analysis**: Automatic sign determination for expressions
+- **Case Generation**: Comprehensive case analysis for all scenarios  
+- **LaTeX Integration**: Professional mathematical documentation
+- **Parameter Preservation**: Maintains non-target variable constraints
+- **Error Handling**: Robust validation and error reporting
 
-```python
-from sympy import symbols
-from solver import solve_rational_ineq_full
-from case_processor import generate_case_labeled_bounds
-from input_processor import process_inequalities
+## Architecture Benefits
 
-# Define symbols and inequalities
-x, a, b = symbols('x a b')
-ineqs = [
-    (x**2 - 4, ">=", 0),
-    (a*x + b, ">", 0)
-]
+1. **Unified Codebase**: Single repository with complementary solving approaches
+2. **Code Reuse**: Shared utilities between original and elimination solvers
+3. **Clear Interfaces**: Well-defined APIs for both solving strategies
+4. **Comprehensive Testing**: Full coverage of both approaches
+5. **Professional Output**: LaTeX documentation for all results
 
-# Process and solve
-processed = process_inequalities(ineqs)
-results = generate_case_labeled_bounds(processed, x, solve_rational_ineq_full)
-
-# Print results
-for i, result in enumerate(results):
-    print(f"Case {i+1}: {result}")
-```
-
-## Input Formats
-
-The solver accepts inequalities in multiple formats:
-
-1. **Tuple format**: `(expression, operator, rhs)`
-   ```python
-   (x**2 - 4, ">=", 0)
-   ```
-
-2. **Expression-operator format**: `(expression, operator)`
-   ```python
-   (x**2 - 4, ">=")  # Assumes RHS = 0
-   ```
-
-3. **String format**: `"lhs operator rhs"`
-   ```python
-   "x**2 - 4 >= 0"
-   ```
-
-## Supported Operators
-
-- `<=`, `<`: Less than (or equal)
-- `>=`, `>`: Greater than (or equal)
-- `==`: Equal
-- `!=`: Not equal
-
-## Module Descriptions
-
-### `solver.py`
-Contains the core rational inequality solving logic:
-- Handles rational expressions by analyzing numerator and denominator separately
-- Supports linear and quadratic polynomials with symbolic parameters
-- Generates detailed case analysis for all solution branches
-
-### `case_processor.py`
-Processes solver output and generates formatted results:
-- Extracts bound information from solver output
-- Combines multiple inequality cases using Cartesian products
-- Formats output as LaTeX for mathematical presentation
-
-### `input_processor.py`
-Handles input parsing and validation:
-- Supports multiple inequality input formats
-- Converts strings to SymPy expressions
-- Validates operator syntax and expression structure
-
-### `examples.py`
-Contains predefined test cases and examples:
-- Complex rational inequalities with multiple parameters
-- Simple polynomial inequalities
-- Mixed parameter systems
-- Utilities for running and comparing examples
-
-## Error Handling
-
-The solver includes comprehensive error handling:
-- Input format validation
-- Expression parsing error recovery
-- Operator validation
-- Symbolic computation error handling
-
-## LaTeX Output
-
-Results are formatted as LaTeX expressions suitable for mathematical documents:
-
-```latex
-\textbf{Case 1: ...}\\[1em]
-\left\{ \text{constraints} \wedge \max(...) < x < \min(...) \right\}\\[1em]
-\left\{ \text{constraints} \wedge \max(...) \le x \le \min(...) \right\}
-```
-
-## Contributing
-
-1. Follow the existing modular structure
-2. Add comprehensive docstrings
-3. Include error handling
-4. Add examples for new features
-5. Update this README for significant changes
-
-## Dependencies
-
-- SymPy: Symbolic mathematics library
-- Python 3.7+: Core language features
-
-## License
-
-This project is provided as-is for educational and research purposes.
+This unified solver provides both traditional rational inequality solving and advanced multi-variable elimination in a single, well-integrated system.

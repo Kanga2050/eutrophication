@@ -63,7 +63,7 @@ def demo_with_real_example():
     
     if results:
         print(f"\nGenerated {len(results)} LaTeX results")
-        print("Files saved in 'output/' directory")
+        print("Files saved in 'output_final/' directory")
     else:
         print("Failed to generate results")
 
@@ -102,4 +102,4 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("DEMONSTRATION COMPLETE")
     print("=" * 60)
-    print("Check the 'output/' and 'custom_output/' directories for generated files.")
+    print("Check the 'output_final/' and 'custom_output/' directories for generated files.")

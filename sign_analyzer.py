@@ -1,6 +1,41 @@
 """
-Sign analysis module for determining the sign of mathematical expressions.
-This module uses a recursive binary decomposition approach similar to merge sort.
+Sign Analysis Module for Mathematical Expressions
+
+This module provides sophisticated sign analysis capabilities for mathematical expressions,
+using a recursive binary decomposition approach similar to merge sort algorithms. It helps
+optimize the rational inequality solver by eliminating mathematically impossible cases
+before detailed analysis.
+
+Key Features:
+- **Recursive Decomposition**: Break complex expressions into simpler components
+- **Binary Operation Handling**: Proper sign combination rules for addition, multiplication, powers
+- **Mathematical Constants**: Recognition of standard constants (π, e, etc.)
+- **Function Analysis**: Handle transcendental functions (exp, log, trig functions)
+- **Assumption System**: Support for domain-specific assumptions (e.g., x > 0)
+- **Optimization**: Cache results and eliminate impossible cases early
+
+Classes:
+- SignCombiner: Handles binary operation sign combination rules
+- SignAnalyzer: Main analysis engine with recursive decomposition
+- Helper functions for specific expression types
+
+Algorithm Overview:
+1. **Expression Classification**: Identify expression type (constant, variable, function, etc.)
+2. **Recursive Decomposition**: Break complex expressions into simpler parts
+3. **Sign Combination**: Apply mathematical rules for combining signs
+4. **Result Caching**: Store results for performance optimization
+5. **Assumption Integration**: Apply domain constraints and user assumptions
+
+Supported Expression Types:
+- **Constants**: Numbers, π, e, infinity
+- **Variables**: Single symbols with optional assumptions
+- **Polynomials**: Linear, quadratic, and higher-order polynomials
+- **Rational Functions**: P(x)/Q(x) with proper handling of discontinuities
+- **Transcendental Functions**: exp, log, sin, cos, tan
+- **Complex Expressions**: Nested combinations of the above
+
+Author: Rational Inequality Solver Team
+Version: Enhanced with Recursive Binary Decomposition
 """
 from sympy import (
     symbols, sympify, simplify, expand, factor, 

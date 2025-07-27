@@ -63,13 +63,13 @@ class VariableEliminationSolver:
             
             print(f"Eliminating variable: {var_name}")
             
-            # Step 1: Isolate variable and create min/max expressions
-            min_max_result = self._isolate_variable(current_inequalities, var_symbol)
+            # Step 1: Isolate variable and create case-based constraints
+            case_result = self._isolate_variable(current_inequalities, var_symbol)
             
-            # Step 2: Remove variable from min/max expressions
-            eliminated_result = self._eliminate_variable_from_minmax(min_max_result, var_symbol)
+            # Step 2: Create elimination constraints from cases
+            eliminated_result = self._eliminate_variable_from_minmax(case_result, var_symbol)
             
-            # Step 3: Expand min/max combinations into new inequalities
+            # Step 3: Expand case combinations into new inequalities
             new_inequalities = self._expand_minmax_combinations(eliminated_result)
             
             # Record this elimination step
@@ -78,7 +78,7 @@ class VariableEliminationSolver:
                 'description': f'Eliminate Variable {var_name}',
                 'variable_eliminated': var_name,
                 'input_inequalities': current_inequalities,
-                'min_max_expressions': min_max_result,
+                'case_based_constraints': case_result,
                 'eliminated_expressions': eliminated_result,
                 'output_inequalities': new_inequalities
             }
@@ -97,17 +97,17 @@ class VariableEliminationSolver:
     
     def _isolate_variable(self, inequalities, variable):
         """
-        Isolate a variable from the inequality system, creating min/max expressions.
+        Isolate a variable from the inequality system, creating case-based bounds.
         
         Args:
             inequalities: List of (lhs, op, rhs) tuples
             variable: Variable symbol to isolate
             
         Returns:
-            dict: Min/max expressions and constraints
+            dict: Case-based bounds and constraints
         """
         constraints_without_var = []
-        variable_bounds = []
+        case_based_constraints = []
         
         for lhs, op, rhs in inequalities:
             expr = simplify(lhs - rhs)
@@ -118,105 +118,303 @@ class VariableEliminationSolver:
             else:
                 # Solve for the variable bounds
                 try:
-                    # Use the existing solver to get bounds
+                    # Use the existing solver to get bounds with full case information
                     case_outputs = solve_rational_ineq_full(expr, variable, op, self.use_sign_analysis)
-                    parsed_cases = isolate_cases_from_solver(case_outputs)
                     
-                    for label, bounds in parsed_cases:
-                        for bound_expr, direction in bounds:
-                            variable_bounds.append({
-                                'expression': bound_expr,
-                                'direction': direction,  # '>' for lower bound, '<' for upper bound
-                                'case_label': label,
-                                'original_inequality': (lhs, op, rhs)
-                            })
-                            
+                    # Parse cases and extract both bounds and conditions
+                    for case_output in case_outputs:
+                        case_info = self._parse_case_with_conditions(case_output, variable)
+                        if case_info:
+                            case_info['original_inequality'] = (lhs, op, rhs)
+                            case_based_constraints.append(case_info)
+                        
                 except Exception as e:
                     print(f"Warning: Could not process inequality {expr} {op} 0: {e}")
-                    # Fallback: treat as constraint
-                    constraints_without_var.append((lhs, op, rhs))
-        
-        # Separate lower and upper bounds
-        lower_bounds = [b for b in variable_bounds if b['direction'] == '>']
-        upper_bounds = [b for b in variable_bounds if b['direction'] == '<']
+                    print(f"  Skipping constraint {lhs} {op} {rhs} - contains {variable} but cannot be isolated")
         
         return {
             'constraints_without_var': constraints_without_var,
-            'lower_bounds': lower_bounds,
-            'upper_bounds': upper_bounds,
+            'case_based_constraints': case_based_constraints,
             'variable': variable
         }
     
-    def _eliminate_variable_from_minmax(self, min_max_result, variable):
+    def _parse_case_with_conditions(self, case_output, variable):
         """
-        Create min/max expressions without the variable.
+        Parse a single case output to extract bounds and conditions.
         
         Args:
-            min_max_result: Result from _isolate_variable
+            case_output: Single case output string from solver
+            variable: Variable being isolated
+            
+        Returns:
+            dict: Case information with bounds and conditions
+        """
+        import re
+        
+        lines = case_output.strip().split('\n')
+        if not lines:
+            return None
+            
+        # Extract case description
+        case_description = lines[0].strip()
+        
+        # Extract bounds on the target variable
+        bounds = []
+        conditions = []
+        
+        for line in lines[1:]:
+            line = line.strip()
+            
+            # Look for "Linear condition: x >= expr" or "Linear condition: x < expr"
+            if 'Linear condition:' in line:
+                # Extract the condition part after "Linear condition:"
+                condition_part = line.split('Linear condition:')[1].strip()
+                
+                # Look for patterns like "x >= 0", "x < 0", etc.
+                var_match = re.search(r'x\s*([<>]=?)\s*(.+)', condition_part)
+                if var_match:
+                    op, expr_str = var_match.groups()
+                    try:
+                        expr = simplify(expr_str.strip())
+                        direction = '<' if '<' in op else '>'
+                        bounds.append((expr, direction))
+                    except:
+                        continue
+            
+            # Look for conditions like "and (expr) > 0"
+            elif line.startswith('and'):
+                # Extract condition after 'and'
+                and_match = re.search(r'and\s*\(([^)]+)\)\s*([<>]=?)\s*(.+)', line)
+                if and_match:
+                    cond_expr, cond_op, cond_rhs = and_match.groups()
+                    try:
+                        cond_lhs = simplify(cond_expr.strip())
+                        cond_rhs = simplify(cond_rhs.strip())
+                        conditions.append((cond_lhs, cond_op, cond_rhs))
+                    except:
+                        continue
+        
+        if bounds:
+            return {
+                'case_description': case_description,
+                'bounds': bounds,
+                'conditions': conditions
+            }
+        
+        return None
+    
+    def _eliminate_variable_from_minmax(self, case_result, variable):
+        """
+        Create elimination constraints from case-based bounds.
+        
+        Args:
+            case_result: Result from _isolate_variable with case-based constraints
             variable: Variable being eliminated
             
         Returns:
-            dict: Min/max expressions without the variable
+            dict: Elimination constraints with their conditions
         """
-        lower_bounds = min_max_result['lower_bounds']
-        upper_bounds = min_max_result['upper_bounds']
-        constraints = min_max_result['constraints_without_var']
+        constraints_without_var = case_result['constraints_without_var']
+        case_constraints = case_result['case_based_constraints']
         
-        # Extract bound expressions (remove variable from consideration)
-        lower_exprs = [bound['expression'] for bound in lower_bounds]
-        upper_exprs = [bound['expression'] for bound in upper_bounds]
+        # Separate cases by bounds type
+        lower_bound_cases = []
+        upper_bound_cases = []
         
-        # Create min/max expressions
-        min_expr = None
-        max_expr = None
-        
-        if upper_exprs:
-            min_expr = Min(*upper_exprs) if len(upper_exprs) > 1 else upper_exprs[0]
-            
-        if lower_exprs:
-            max_expr = Max(*lower_exprs) if len(lower_exprs) > 1 else lower_exprs[0]
+        for case in case_constraints:
+            for bound_expr, direction in case['bounds']:
+                case_info = {
+                    'expression': bound_expr,
+                    'direction': direction,
+                    'conditions': case['conditions'],
+                    'case_description': case['case_description'],
+                    'original_inequality': case['original_inequality']
+                }
+                
+                if direction == '>':
+                    lower_bound_cases.append(case_info)
+                else:  # direction == '<'
+                    upper_bound_cases.append(case_info)
         
         return {
-            'constraints_without_var': constraints,
-            'min_expression': min_expr,
-            'max_expression': max_expr,
-            'lower_bound_details': lower_bounds,
-            'upper_bound_details': upper_bounds,
+            'constraints_without_var': constraints_without_var,
+            'lower_bound_cases': lower_bound_cases,
+            'upper_bound_cases': upper_bound_cases,
             'variable_eliminated': variable
         }
     
     def _expand_minmax_combinations(self, eliminated_result):
         """
-        Expand min/max combinations into new inequality cases.
+        Create elimination constraints from case combinations.
         
         Args:
             eliminated_result: Result from _eliminate_variable_from_minmax
             
         Returns:
-            List of new inequality tuples
+            List of new inequality tuples with case information
         """
-        constraints = eliminated_result['constraints_without_var']
-        min_expr = eliminated_result['min_expression']
-        max_expr = eliminated_result['max_expression']
-        lower_details = eliminated_result['lower_bound_details']
-        upper_details = eliminated_result['upper_bound_details']
+        constraints_without_var = eliminated_result['constraints_without_var']
+        lower_bound_cases = eliminated_result['lower_bound_cases']
+        upper_bound_cases = eliminated_result['upper_bound_cases']
         
-        new_inequalities = list(constraints)  # Start with constraints
+        new_inequalities = list(constraints_without_var)  # Start with constraints without the variable
         
-        # For each combination of a term from max with a term from min,
-        # create a new inequality: max_term <= min_term
-        if max_expr is not None and min_expr is not None:
-            # Get individual terms from Min/Max expressions
-            max_terms = max_expr.args if hasattr(max_expr, 'args') and len(max_expr.args) > 1 else [max_expr]
-            min_terms = min_expr.args if hasattr(min_expr, 'args') and len(min_expr.args) > 1 else [min_expr]
-            
-            # Create all combinations
-            for max_term in max_terms:
-                for min_term in min_terms:
-                    # Create inequality: max_term <= min_term
-                    new_inequalities.append((max_term, '<=', min_term))
+        print(f"Found {len(lower_bound_cases)} lower bound cases and {len(upper_bound_cases)} upper bound cases")
+        
+        # For each valid combination of lower and upper bounds, create elimination constraints
+        if lower_bound_cases and upper_bound_cases:
+            for lower_case in lower_bound_cases:
+                for upper_case in upper_bound_cases:
+                    # Filter conditions first
+                    lower_valid_conditions = self._filter_trivial_conditions(lower_case['conditions'])
+                    upper_valid_conditions = self._filter_trivial_conditions(upper_case['conditions'])
+                    
+                    # Skip impossible cases
+                    if lower_valid_conditions is None or upper_valid_conditions is None:
+                        print(f"  Skipping impossible case combination")
+                        continue
+                    
+                    # Check if the remaining conditions are compatible
+                    if self._are_conditions_compatible(lower_valid_conditions, upper_valid_conditions):
+                        # Create elimination constraint: lower_bound <= upper_bound
+                        elimination_constraint = (lower_case['expression'], '<=', upper_case['expression'])
+                        
+                        # Combine valid conditions
+                        all_valid_conditions = lower_valid_conditions + upper_valid_conditions
+                        
+                        # Add the elimination constraint
+                        new_inequalities.append(elimination_constraint)
+                        
+                        # Add only non-trivial conditions as separate constraints
+                        for cond_lhs, cond_op, cond_rhs in all_valid_conditions:
+                            new_inequalities.append((cond_lhs, cond_op, cond_rhs))
+                        
+                        print(f"Created elimination constraint: {lower_case['expression']} <= {upper_case['expression']}")
+                        if all_valid_conditions:
+                            print(f"  With conditions: {[f'{lhs} {op} {rhs}' for lhs, op, rhs in all_valid_conditions]}")
+                        else:
+                            print(f"  No additional conditions needed")
+        
+        # If only lower bounds exist, add them with their conditions
+        elif lower_bound_cases and not upper_bound_cases:
+            for lower_case in lower_bound_cases:
+                valid_conditions = self._filter_trivial_conditions(lower_case['conditions'])
+                if valid_conditions is not None:  # Only if case is possible
+                    # Add the conditions as constraints  
+                    for cond_lhs, cond_op, cond_rhs in valid_conditions:
+                        new_inequalities.append((cond_lhs, cond_op, cond_rhs))
+                    print(f"Added conditions for lower bound case: {lower_case['expression']}")
+        
+        # If only upper bounds exist, add them with their conditions
+        elif upper_bound_cases and not lower_bound_cases:
+            for upper_case in upper_bound_cases:
+                valid_conditions = self._filter_trivial_conditions(upper_case['conditions'])
+                if valid_conditions is not None:  # Only if case is possible
+                    # Add the conditions as constraints
+                    for cond_lhs, cond_op, cond_rhs in valid_conditions:
+                        new_inequalities.append((cond_lhs, cond_op, cond_rhs))
+                    print(f"Added conditions for upper bound case: {upper_case['expression']}")
         
         return new_inequalities
+    
+    def _filter_trivial_conditions(self, conditions):
+        """Filter out trivial conditions like 1 > 0 (always true) or 1 < 0 (always false)."""
+        valid_conditions = []
+        
+        for cond_lhs, cond_op, cond_rhs in conditions:
+            try:
+                from sympy import sympify
+                lhs_val = sympify(cond_lhs)
+                rhs_val = sympify(cond_rhs)
+                
+                # If both sides are constants, evaluate
+                if lhs_val.is_number and rhs_val.is_number:
+                    # Convert to float for comparison
+                    lhs_float = float(lhs_val)
+                    rhs_float = float(rhs_val)
+                    
+                    if cond_op == '>':
+                        is_true = lhs_float > rhs_float
+                    elif cond_op == '<':
+                        is_true = lhs_float < rhs_float
+                    elif cond_op == '>=':
+                        is_true = lhs_float >= rhs_float
+                    elif cond_op == '<=':
+                        is_true = lhs_float <= rhs_float
+                    elif cond_op == '==':
+                        is_true = abs(lhs_float - rhs_float) < 1e-10
+                    else:
+                        is_true = None
+                    
+                    if is_true is True:
+                        # Always true condition - skip it
+                        print(f"    Skipping always-true condition: {cond_lhs} {cond_op} {cond_rhs}")
+                        continue
+                    elif is_true is False:
+                        # Always false condition - this case is impossible
+                        print(f"    Found impossible condition {cond_lhs} {cond_op} {cond_rhs} - case is invalid")
+                        return None  # Return None to indicate impossible case
+                
+                # Keep non-trivial conditions
+                valid_conditions.append((cond_lhs, cond_op, cond_rhs))
+                
+            except:
+                # If we can't evaluate, keep the condition
+                valid_conditions.append((cond_lhs, cond_op, cond_rhs))
+        
+        return valid_conditions
+    
+    def _are_conditions_compatible(self, conditions1, conditions2):
+        """
+        Check if two sets of conditions are compatible (don't contradict each other).
+        
+        Also filters out trivial conditions like 1 > 0 (always true) or 1 < 0 (always false).
+        """
+        # Combine all conditions
+        all_conditions = conditions1 + conditions2
+        
+        # Filter and check conditions
+        valid_conditions = []
+        
+        for cond_lhs, cond_op, cond_rhs in all_conditions:
+            # Check for trivial conditions
+            try:
+                from sympy import sympify
+                lhs_val = sympify(cond_lhs)
+                rhs_val = sympify(cond_rhs)
+                
+                # If both sides are constants, evaluate
+                if lhs_val.is_number and rhs_val.is_number:
+                    if cond_op == '>':
+                        is_true = lhs_val > rhs_val
+                    elif cond_op == '<':
+                        is_true = lhs_val < rhs_val
+                    elif cond_op == '>=':
+                        is_true = lhs_val >= rhs_val
+                    elif cond_op == '<=':
+                        is_true = lhs_val <= rhs_val
+                    elif cond_op == '==':
+                        is_true = lhs_val == rhs_val
+                    else:
+                        is_true = None
+                    
+                    if is_true is False:
+                        # This condition is always false, so the combination is impossible
+                        return False
+                    elif is_true is True:
+                        # This condition is always true, so we can ignore it
+                        continue
+                
+                # Keep non-trivial conditions
+                valid_conditions.append((cond_lhs, cond_op, cond_rhs))
+                
+            except:
+                # If we can't evaluate, keep the condition
+                valid_conditions.append((cond_lhs, cond_op, cond_rhs))
+        
+        # For now, assume remaining conditions are compatible
+        # A more sophisticated check would look for contradictions like x > 0 and x < 0
+        return True
     
     def generate_latex_report(self):
         """
@@ -244,7 +442,7 @@ class VariableEliminationSolver:
 \usepackage{enumitem}
 \geometry{margin=1in}
 
-\title{Sequential Variable Elimination for Rational Inequalities}
+\title{Sequential Variable Elimination for Rational Inequalities with Case Analysis}
 \author{Enhanced Rational Inequality Solver}
 \date{\today}
 
@@ -253,14 +451,24 @@ class VariableEliminationSolver:
 
 \section{Introduction}
 
-This document shows the step-by-step elimination of variables from a system of rational inequalities. 
+This document shows the step-by-step elimination of variables from a system of rational inequalities 
+using comprehensive case analysis. Each inequality is solved by isolating the target variable 
+and analyzing all possible cases that arise from sign conditions and domain constraints.
+
 For each variable elimination, we show four sub-steps:
 \begin{enumerate}
 \item Original inequalities involving the variable
-\item Min/Max expressions after isolation
-\item Min/Max expressions after variable elimination
+\item Min/Max expressions after isolation (with detailed case-by-case analysis)
+\item Min/Max expressions after variable elimination  
 \item Final expanded inequalities
 \end{enumerate}
+
+The case analysis shows how each original inequality is decomposed into multiple cases based on:
+\begin{itemize}
+\item Sign analysis of expressions in denominators
+\item Domain constraints from square roots and other functions
+\item Conditional bounds that depend on parameter values
+\end{itemize}
 
 """
 
@@ -272,133 +480,167 @@ For each variable elimination, we show four sub-steps:
             return self._generate_elimination_step_latex(step)
     
     def _generate_initial_system_latex(self, step):
-        """Generate LaTeX for the initial system."""
+        """Generate LaTeX for the initial system with large brackets and ∧ symbols."""
         latex_content = r"\section{Initial System}" + "\n\n"
         latex_content += r"Starting with the following system of inequalities:" + "\n\n"
-        latex_content += r"\begin{align}" + "\n"
+        
+        latex_content += r"\left\{" + "\n"
+        latex_content += r"\begin{aligned}" + "\n"
         
         for i, (lhs, op, rhs) in enumerate(step['input_inequalities']):
             latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
             if i < len(step['input_inequalities']) - 1:
                 latex_content += r" \\" + "\n"
+                latex_content += r"& \wedge \\" + "\n"  # ∧ symbol for "and"
             else:
                 latex_content += "\n"
         
-        latex_content += r"\end{align}" + "\n\n"
+        latex_content += r"\end{aligned}" + "\n"
+        latex_content += r"\right\}" + "\n\n"
+        
         return latex_content
     
     def _generate_elimination_step_latex(self, step):
-        """Generate LaTeX for a variable elimination step."""
+        """Generate LaTeX for a variable elimination step with large brackets and iff arrows."""
         var_name = step['variable_eliminated']
         step_num = step['step_number']
         
         latex_content = f"\\section{{Step {step_num}: Eliminate Variable ${var_name}$}}\n\n"
         
-        # Sub-step 1: Input inequalities (ALL inequalities from this step)
+        # Sub-step 1: Input inequalities with large brackets and ∧ symbols
         latex_content += f"\\subsection{{Step {step_num}.1: Input Inequalities}}\n\n"
         
-        # Separate inequalities involving the variable vs those that don't
-        var_related = []
-        var_unrelated = []
+        # All inequalities in large brackets with ∧ separators
+        all_ineqs = step['input_inequalities']
         
-        for ineq in step['input_inequalities']:
-            lhs, op, rhs = ineq
-            # Check if variable appears in this inequality
-            var_appears = (str(var_name) in str(lhs)) or (str(var_name) in str(rhs))
-            if var_appears:
-                var_related.append(ineq)
+        latex_content += r"\left\{" + "\n"
+        latex_content += r"\begin{aligned}" + "\n"
+        
+        for i, (lhs, op, rhs) in enumerate(all_ineqs):
+            latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
+            if i < len(all_ineqs) - 1:
+                latex_content += r" \\" + "\n"
+                latex_content += r"& \wedge \\" + "\n"  # ∧ symbol for "and"
             else:
-                var_unrelated.append(ineq)
+                latex_content += "\n"
         
-        # Show inequalities involving the variable first
-        if var_related:
-            latex_content += f"Inequalities involving ${var_name}$:\n"
-            latex_content += r"\begin{align}" + "\n"
-            for i, (lhs, op, rhs) in enumerate(var_related):
-                latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
-                if i < len(var_related) - 1:
-                    latex_content += r" \\" + "\n"
-                else:
-                    latex_content += "\n"
-            latex_content += r"\end{align}" + "\n\n"
+        latex_content += r"\end{aligned}" + "\n"
+        latex_content += r"\right\}" + "\n\n"
         
-        # Show unrelated inequalities at the bottom
-        if var_unrelated:
-            latex_content += f"Inequalities not involving ${var_name}$ (preserved):\n"
-            latex_content += r"\begin{align}" + "\n"
-            for i, (lhs, op, rhs) in enumerate(var_unrelated):
-                latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
-                if i < len(var_unrelated) - 1:
-                    latex_content += r" \\" + "\n"
-                else:
-                    latex_content += "\n"
-            latex_content += r"\end{align}" + "\n\n"
+        # Sub-step 2: Case-based bounds analysis
+        latex_content += f"\\subsection{{Step {step_num}.2: Case-Based Bounds for ${var_name}$}}\n\n"
+        case_result = step['case_based_constraints']
         
-        # Sub-step 2: Min/Max expressions with proper format
-        latex_content += f"\\subsection{{Step {step_num}.2: Min/Max Bounds for ${var_name}$}}\n\n"
-        min_max = step['min_max_expressions']
-        
-        # Format: max(expressions) <= x <= min(expressions) or max(expressions) < x < min(expressions)
-        lower_exprs = [bound['expression'] for bound in min_max['lower_bounds']] if min_max['lower_bounds'] else []
-        upper_exprs = [bound['expression'] for bound in min_max['upper_bounds']] if min_max['upper_bounds'] else []
-        
-        if lower_exprs and upper_exprs:
-            # Both bounds exist - show complete constraint
-            max_expr = f"\\max\\left({', '.join([latex(expr) for expr in lower_exprs])}\\right)" if len(lower_exprs) > 1 else latex(lower_exprs[0])
-            min_expr = f"\\min\\left({', '.join([latex(expr) for expr in upper_exprs])}\\right)" if len(upper_exprs) > 1 else latex(upper_exprs[0])
+        if case_result['case_based_constraints']:
+            latex_content += "\\textbf{Case Analysis:}\n\n"
             
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& {max_expr} \\leq {var_name} \\leq {min_expr}\n"
-            latex_content += r"\end{align}" + "\n\n"
+            # Group cases by type
+            lower_cases = []
+            upper_cases = []
             
-        elif lower_exprs:
-            # Only lower bounds
-            max_expr = f"\\max\\left({', '.join([latex(expr) for expr in lower_exprs])}\\right)" if len(lower_exprs) > 1 else latex(lower_exprs[0])
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& {var_name} \\geq {max_expr}\n"
-            latex_content += r"\end{align}" + "\n\n"
+            for case in case_result['case_based_constraints']:
+                for bound_expr, direction in case['bounds']:
+                    case_info = {
+                        'expression': bound_expr,
+                        'direction': direction,
+                        'conditions': case['conditions'],
+                        'case_description': case['case_description'],
+                        'original_inequality': case['original_inequality']
+                    }
+                    
+                    if direction == '>':
+                        lower_cases.append(case_info)
+                    else:
+                        upper_cases.append(case_info)
             
-        elif upper_exprs:
-            # Only upper bounds
-            min_expr = f"\\min\\left({', '.join([latex(expr) for expr in upper_exprs])}\\right)" if len(upper_exprs) > 1 else latex(upper_exprs[0])
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& {var_name} \\leq {min_expr}\n"
-            latex_content += r"\end{align}" + "\n\n"
+            # Show lower bounds with their cases and conditions
+            if lower_cases:
+                latex_content += "\\textbf{Lower Bounds:}\n"
+                for i, case in enumerate(lower_cases):
+                    latex_content += f"\\begin{{itemize}}\n"
+                    latex_content += f"\\item Case {i+1}: {case['case_description']}\n"
+                    latex_content += f"      Original inequality: ${latex(case['original_inequality'][0])} {case['original_inequality'][1]} {latex(case['original_inequality'][2])}$\n"
+                    latex_content += f"      Result: ${var_name} {case['direction']} {latex(case['expression'])}$\n"
+                    
+                    # Add conditions if any
+                    if case['conditions']:
+                        latex_content += "      Conditions:\n"
+                        for cond_lhs, cond_op, cond_rhs in case['conditions']:
+                            latex_content += f"      \\quad ${latex(cond_lhs)} {cond_op} {latex(cond_rhs)}$\n"
+                    
+                    latex_content += f"\\end{{itemize}}\n"
+                latex_content += "\n"
+            
+            # Show upper bounds with their cases and conditions
+            if upper_cases:
+                latex_content += "\\textbf{Upper Bounds:}\n"
+                for i, case in enumerate(upper_cases):
+                    latex_content += f"\\begin{{itemize}}\n"
+                    latex_content += f"\\item Case {i+1}: {case['case_description']}\n"
+                    latex_content += f"      Original inequality: ${latex(case['original_inequality'][0])} {case['original_inequality'][1]} {latex(case['original_inequality'][2])}$\n"
+                    latex_content += f"      Result: ${var_name} {case['direction']} {latex(case['expression'])}$\n"
+                    
+                    # Add conditions if any
+                    if case['conditions']:
+                        latex_content += "      Conditions:\n"
+                        for cond_lhs, cond_op, cond_rhs in case['conditions']:
+                            latex_content += f"      \\quad ${latex(cond_lhs)} {cond_op} {latex(cond_rhs)}$\n"
+                    
+                    latex_content += f"\\end{{itemize}}\n"
+                latex_content += "\n"
         else:
-            latex_content += "No bounds found for this variable.\n\n"
+            latex_content += "No case-based bounds found for this variable.\n\n"
         
-        # Sub-step 3: After elimination - show constraint between bounds
-        latex_content += f"\\subsection{{Step {step_num}.3: Constraint After Eliminating ${var_name}$}}\n\n"
+        # Sub-step 3: Constraint after elimination
+        latex_content += f"\\subsection{{Step {step_num}.3: Elimination Constraints}}\n\n"
         eliminated = step['eliminated_expressions']
         
-        if eliminated['max_expression'] is not None and eliminated['min_expression'] is not None:
-            latex_content += "For the system to be feasible:\n"
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& {latex(eliminated['max_expression'])} \\leq {latex(eliminated['min_expression'])}\n"
-            latex_content += r"\end{align}" + "\n\n"
-        elif eliminated['max_expression'] is not None:
-            latex_content += "Lower bound constraint:\n"
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& \\text{{Any value}} \\geq {latex(eliminated['max_expression'])}\n"
-            latex_content += r"\end{align}" + "\n\n"
-        elif eliminated['min_expression'] is not None:
-            latex_content += "Upper bound constraint:\n"
-            latex_content += r"\begin{align}" + "\n"
-            latex_content += f"& \\text{{Any value}} \\leq {latex(eliminated['min_expression'])}\n"
-            latex_content += r"\end{align}" + "\n\n"
+        # Show how cases combine to create elimination constraints
+        if eliminated['lower_bound_cases'] and eliminated['upper_bound_cases']:
+            latex_content += "\\textbf{Case Combinations for Elimination:}\n\n"
+            latex_content += "For the variable to be eliminable, each lower bound case must be compatible with each upper bound case.\n\n"
+            
+            for i, lower_case in enumerate(eliminated['lower_bound_cases']):
+                for j, upper_case in enumerate(eliminated['upper_bound_cases']):
+                    latex_content += f"\\textbf{{Combination {i+1},{j+1}:}}\n"
+                    latex_content += f"Lower bound: ${latex(lower_case['expression'])}$ (from {lower_case['case_description']})\n"
+                    latex_content += f"Upper bound: ${latex(upper_case['expression'])}$ (from {upper_case['case_description']})\n"
+                    latex_content += f"Elimination constraint: ${latex(lower_case['expression'])} \\leq {latex(upper_case['expression'])}$\n"
+                    
+                    # Show conditions
+                    all_conditions = lower_case['conditions'] + upper_case['conditions']
+                    if all_conditions:
+                        latex_content += "Required conditions:\n"
+                        for cond_lhs, cond_op, cond_rhs in all_conditions:
+                            latex_content += f"\\quad ${latex(cond_lhs)} {cond_op} {latex(cond_rhs)}$\n"
+                    latex_content += "\n"
+                    
+        elif eliminated['lower_bound_cases']:
+            latex_content += "\\textbf{Only Lower Bounds:}\n"
+            latex_content += "Variable has only lower bounds, so elimination adds the required conditions.\n\n"
+            
+        elif eliminated['upper_bound_cases']:
+            latex_content += "\\textbf{Only Upper Bounds:}\n"
+            latex_content += "Variable has only upper bounds, so elimination adds the required conditions.\n\n"
         else:
-            latex_content += "No constraints generated from elimination.\n\n"
+            latex_content += "No elimination constraints generated.\n\n"
         
-        # Sub-step 4: All resulting inequalities (including unrelated ones)
+        # Sub-step 4: Final system with large brackets
         latex_content += f"\\subsection{{Step {step_num}.4: All Resulting Inequalities}}\n\n"
-        latex_content += r"\begin{align}" + "\n"
+        
+        latex_content += r"\left\{" + "\n"
+        latex_content += r"\begin{aligned}" + "\n"
+        
         for i, (lhs, op, rhs) in enumerate(step['output_inequalities']):
             latex_content += f"& {latex(lhs)} {op} {latex(rhs)}"
             if i < len(step['output_inequalities']) - 1:
                 latex_content += r" \\" + "\n"
+                latex_content += r"& \wedge \\" + "\n"
             else:
                 latex_content += "\n"
-        latex_content += r"\end{align}" + "\n\n"
+        
+        latex_content += r"\end{aligned}" + "\n"
+        latex_content += r"\right\}" + "\n\n"
         
         return latex_content
     
@@ -407,17 +649,29 @@ For each variable elimination, we show four sub-steps:
         return r"""
 \section{Summary}
 
-The sequential variable elimination process transforms the original system of inequalities 
-into a new system where the specified variables have been eliminated. Each elimination 
-step potentially increases the number of inequalities due to the expansion of min/max 
-combinations, but removes one variable from consideration.
+The sequential variable elimination process with comprehensive case analysis transforms the original 
+system of inequalities into a new system where the specified variables have been eliminated. 
+Each elimination step shows the detailed case-by-case breakdown of how inequalities are solved, 
+including all sign analysis conditions and domain constraints.
+
+Key features of this approach:
+\begin{itemize}
+\item \textbf{Case Analysis}: Each inequality is solved by considering all possible cases
+\item \textbf{Sign Analysis}: Denominators and critical expressions are analyzed for sign changes
+\item \textbf{Domain Constraints}: Square roots and other functions impose additional constraints
+\item \textbf{Min/Max Expansion}: Bounds are combined and expanded into multiple constraints
+\end{itemize}
 
 This approach is particularly useful for:
 \begin{itemize}
 \item Eliminating intermediate variables in optimization problems
-\item Reducing dimensionality of constraint systems
+\item Reducing dimensionality of constraint systems  
 \item Analyzing parameter dependencies in rational inequalities
+\item Understanding the complete solution structure through case analysis
 \end{itemize}
+
+The resulting system may have more inequalities than the original due to case expansion, 
+but contains fewer variables and makes the constraint structure more explicit.
 
 \end{document}
 """
@@ -472,17 +726,6 @@ def solve_with_variable_elimination(inequalities, variables_to_eliminate,
         
         print(f"Complete LaTeX report saved to: {final_latex_file}")
         print()
-        
-        # Also save summary to standard output folder
-        output_dir = "output"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        text_file = os.path.join(output_dir, f"{output_filename}_summary.txt")
-        with open(text_file, 'w') as f:
-            f.write(_generate_text_summary(result))
-        
-        print(f"Text summary saved to: {text_file}")
-        print()
     
     # Print summary
     _print_solution_summary(result)
@@ -508,9 +751,15 @@ def _print_solution_summary(result):
             print(f"  Input inequalities: {len(step['input_inequalities'])}")
             print(f"  Output inequalities: {len(step['output_inequalities'])}")
             
-            min_max = step['min_max_expressions']
-            print(f"  Lower bounds found: {len(min_max['lower_bounds'])}")
-            print(f"  Upper bounds found: {len(min_max['upper_bounds'])}")
+            case_result = step['case_based_constraints']
+            if 'case_based_constraints' in case_result:
+                # Count lower and upper bound cases
+                lower_cases = sum(1 for case in case_result['case_based_constraints'] 
+                                for bound_expr, direction in case['bounds'] if direction == '>')
+                upper_cases = sum(1 for case in case_result['case_based_constraints'] 
+                                for bound_expr, direction in case['bounds'] if direction == '<')
+                print(f"  Lower bound cases found: {lower_cases}")
+                print(f"  Upper bound cases found: {upper_cases}")
         print()
 
 
@@ -541,17 +790,15 @@ def _generate_text_summary(result):
                 summary.append(f"  {lhs} {op} {rhs}")
             summary.append("")
             
-            min_max = step['min_max_expressions']
-            if min_max['lower_bounds']:
-                summary.append("Lower bounds:")
-                for bound in min_max['lower_bounds']:
-                    summary.append(f"  {step['variable_eliminated']} > {bound['expression']}")
-                summary.append("")
-            
-            if min_max['upper_bounds']:
-                summary.append("Upper bounds:")
-                for bound in min_max['upper_bounds']:
-                    summary.append(f"  {step['variable_eliminated']} < {bound['expression']}")
+            case_result = step['case_based_constraints']
+            if 'case_based_constraints' in case_result:
+                summary.append("Case-based bounds:")
+                for case in case_result['case_based_constraints']:
+                    summary.append(f"  Case: {case['case_description']}")
+                    for bound_expr, direction in case['bounds']:
+                        summary.append(f"    {step['variable_eliminated']} {direction} {bound_expr}")
+                    for cond_lhs, cond_op, cond_rhs in case['conditions']:
+                        summary.append(f"    Condition: {cond_lhs} {cond_op} {cond_rhs}")
                 summary.append("")
             
             summary.append("Output inequalities:")
