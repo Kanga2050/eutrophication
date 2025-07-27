@@ -738,11 +738,9 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
     # Use provided inequalities or enhanced default example system
     if inequalities is None:
         inequalities = [
-            "x1 + 2*x2 + a >= b",     # Mixed variables and constants
-            "x1 - x2 + c >= 0",       # Another constraint on x1, x2
-            "2*x1 + d <= x2 + e",     # Different arrangement
-            "x2 <= f",                # Simple upper bound
-            "g*x3 + x1 >= h"          # Involving x3
+            "(x1 + 1)/(x1 - 2) >= 0",    # Rational inequality in x1
+            "x1 + x2 <= a",              # Linear constraint with constants
+            "x2 >= b"                    # Simple bound
         ]
     
     # Auto-detect variables if not provided
@@ -1109,25 +1107,17 @@ class HierarchicalLatexGenerator:
                 ""
             ])
         
-        # Show elimination steps for this case with detailed process
+        # Show elimination steps for this case with clean process
         if case.elimination_steps:
             for i, step in enumerate(case.elimination_steps):
                 variable = step['variable']
                 latex_content.extend([
                     f"\\textbf{{Elimination of variable ${variable}$ in {case.name}:}}",
-                    "",
-                    "\\begin{enumerate}",
-                    f"\\item \\textbf{{Step 1}}: Isolate ${variable}$ in relevant inequalities",
-                    f"\\item \\textbf{{Step 2}}: Combine to max/min form",
-                    f"\\item \\textbf{{Step 3}}: Remove ${variable}$",
-                    f"\\item \\textbf{{Step 4}}: Expand into {len(case.subcases)} subcase(s)",
-                    "\\end{enumerate}",
                     ""
                 ])
                 
-                # Add detailed step-by-step process if available
-                if 'step1' in step:
-                    latex_content.extend(self._format_step_details(step, variable))
+                # Add step-by-step process showing inequalities after each step
+                latex_content.extend(self._format_step_details(step, variable))
         
         # Document subcases recursively
         for subcase in case.subcases:
@@ -1159,14 +1149,14 @@ class HierarchicalLatexGenerator:
         return header
     
     def _format_step_details(self, step, variable):
-        """Format detailed step-by-step process information with inequalities after each step"""
+        """Format step-by-step process showing inequalities after each step"""
         latex_content = []
         
-        # Add detailed explanations for each step with the actual inequalities
+        # Step 1: Show inequalities after isolating variable
         if 'step1' in step and step['step1'].get('step1_inequalities'):
             step1_inequalities = step['step1']['step1_inequalities']
             latex_content.extend([
-                f"\\textbf{{Step 1 Detail}}: Inequalities after isolating ${variable}$:",
+                f"\\textbf{{Step 1}}: Inequalities after isolating ${variable}$:",
                 "\\begin{align}"
             ])
             for i, ineq in enumerate(step1_inequalities, 1):
@@ -1181,67 +1171,97 @@ class HierarchicalLatexGenerator:
                 ""
             ])
         
+        # Step 2: Show inequalities after combining to min/max form
         if 'step2' in step:
-            # Show the min/max form
-            if step['step2'].get('minmax_form'):
-                latex_content.extend([
-                    f"\\textbf{{Step 2 Detail}}: Combined form is {step['step2']['minmax_form']}",
-                    ""
-                ])
+            step2_data = step['step2']
+            latex_content.extend([
+                f"\\textbf{{Step 2}}: Inequalities after combining to min/max form:",
+                "\\begin{align}"
+            ])
             
-            # Show inequalities after step 2
-            if step['step2'].get('step2_inequalities'):
-                step2_inequalities = step['step2']['step2_inequalities']
-                latex_content.extend([
-                    f"\\textbf{{Step 2 Inequalities}}: System after combining to min/max form:",
-                    "\\begin{align}"
-                ])
-                for i, ineq in enumerate(step2_inequalities, 1):
+            # Show non-involving variables first
+            if step2_data.get('step2_inequalities'):
+                step2_inequalities = step2_data['step2_inequalities']
+                minmax_inequalities = step2_data.get('minmax_inequalities', [])
+                
+                # Separate min/max inequalities from regular ones
+                regular_inequalities = []
+                for ineq in step2_inequalities:
+                    if ineq not in minmax_inequalities:
+                        regular_inequalities.append(ineq)
+                
+                # Show regular inequalities first (those not involving the variable)
+                for ineq in regular_inequalities:
                     if len(ineq) == 3:
                         lhs, op, rhs = ineq
                         formatted_lhs = self.format_expr(lhs)
                         formatted_rhs = self.format_expr(rhs)
                         formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
                         latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
-                latex_content.extend([
-                    "\\end{align}",
-                    ""
-                ])
+                
+                # Show the min/max form if it exists
+                if step2_data.get('minmax_form') and step2_data.get('lower_bounds') and step2_data.get('upper_bounds'):
+                    # Get the actual bound expressions
+                    lower_bounds = step2_data['lower_bounds']
+                    upper_bounds = step2_data['upper_bounds']
+                    variable = step['variable']
+                    
+                    # Format the expressions properly
+                    if len(lower_bounds) == 1 and len(upper_bounds) == 1:
+                        lower_expr = self.format_expr(lower_bounds[0][0])
+                        upper_expr = self.format_expr(upper_bounds[0][0])
+                        latex_content.append(f"& \\max\\{{{lower_expr}\\}} \\leq {variable} \\leq \\min\\{{{upper_expr}\\}} \\\\")
+                    elif len(lower_bounds) > 0 and len(upper_bounds) > 0:
+                        lower_exprs = [self.format_expr(expr) for expr, op in lower_bounds]
+                        upper_exprs = [self.format_expr(expr) for expr, op in upper_bounds]
+                        lower_max = "\\max\\{" + ", ".join(lower_exprs) + "\\}"
+                        upper_min = "\\min\\{" + ", ".join(upper_exprs) + "\\}"
+                        latex_content.append(f"& {lower_max} \\leq {variable} \\leq {upper_min} \\\\")
+                    elif len(lower_bounds) > 0:
+                        # Only lower bounds
+                        lower_exprs = [self.format_expr(expr) for expr, op in lower_bounds]
+                        if len(lower_exprs) == 1:
+                            latex_content.append(f"& {variable} \\geq {lower_exprs[0]} \\\\")
+                        else:
+                            lower_max = "\\max\\{" + ", ".join(lower_exprs) + "\\}"
+                            latex_content.append(f"& {variable} \\geq {lower_max} \\\\")
+                    elif len(upper_bounds) > 0:
+                        # Only upper bounds
+                        upper_exprs = [self.format_expr(expr) for expr, op in upper_bounds]
+                        if len(upper_exprs) == 1:
+                            latex_content.append(f"& {variable} \\leq {upper_exprs[0]} \\\\")
+                        else:
+                            upper_min = "\\min\\{" + ", ".join(upper_exprs) + "\\}"
+                            latex_content.append(f"& {variable} \\leq {upper_min} \\\\")
+                
+            latex_content.extend([
+                "\\end{align}",
+                ""
+            ])
         
-        if 'step3' in step:
-            # Show elimination constraints
-            if step['step3'].get('elimination_constraints'):
-                latex_content.extend([
-                    f"\\textbf{{Step 3 Detail}}: Elimination constraints:",
-                ])
-                for constraint in step['step3']['elimination_constraints']:
-                    latex_content.append(f"\\quad {constraint}")
-                latex_content.append("")
-            
-            # Show inequalities after step 3
-            if step['step3'].get('step3_inequalities'):
-                step3_inequalities = step['step3']['step3_inequalities']
-                latex_content.extend([
-                    f"\\textbf{{Step 3 Inequalities}}: System after removing ${variable}$:",
-                    "\\begin{align}"
-                ])
-                for i, ineq in enumerate(step3_inequalities, 1):
-                    if len(ineq) == 3:
-                        lhs, op, rhs = ineq
-                        formatted_lhs = self.format_expr(lhs)
-                        formatted_rhs = self.format_expr(rhs)
-                        formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
-                        latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
-                latex_content.extend([
-                    "\\end{align}",
-                    ""
-                ])
+        # Step 3: Show inequalities after removing variable
+        if 'step3' in step and step['step3'].get('step3_inequalities'):
+            step3_inequalities = step['step3']['step3_inequalities']
+            latex_content.extend([
+                f"\\textbf{{Step 3}}: Inequalities after removing ${variable}$:",
+                "\\begin{align}"
+            ])
+            for i, ineq in enumerate(step3_inequalities, 1):
+                if len(ineq) == 3:
+                    lhs, op, rhs = ineq
+                    formatted_lhs = self.format_expr(lhs)
+                    formatted_rhs = self.format_expr(rhs)
+                    formatted_op = op.replace('>=', '\\geq').replace('<=', '\\leq')
+                    latex_content.append(f"& {formatted_lhs} {formatted_op} {formatted_rhs} \\\\")
+            latex_content.extend([
+                "\\end{align}",
+                ""
+            ])
         
-        # Note: Step 4 inequalities are shown in the individual subcases
+        # Step 4: Reference to subcases (inequalities shown in subcases)
         if 'step4' in step:
             latex_content.extend([
-                f"\\textbf{{Step 4 Detail}}: Expanded into {step['step4'].get('subcases', 0)} subcase(s).",
-                f"Each subcase shows its specific inequalities after case expansion.",
+                f"\\textbf{{Step 4}}: Expanded into {step['step4'].get('subcases', 0)} subcase(s). Inequalities for each subcase are shown below.",
                 ""
             ])
         
@@ -1292,254 +1312,6 @@ def display_hierarchical_case_analysis(all_cases):
     print("="*60)
 
 
-def test_comprehensive_elimination():
-    """
-    Test the enhanced hierarchical variable elimination with various types of inequalities.
-    
-    This function tests:
-    1. Linear inequalities
-    2. Quadratic inequalities  
-    3. Rational inequalities
-    4. Mixed systems with multiple variables
-    5. Systems with constants
-    """
-    print("=" * 80)
-    print("COMPREHENSIVE TESTING OF ENHANCED VARIABLE ELIMINATION")
-    print("=" * 80)
-    
-    test_cases = [
-        {
-            'name': 'Linear System Test',
-            'description': 'Simple linear inequalities with two variables',
-            'inequalities': [
-                "x1 + 2*x2 >= a",
-                "x1 - x2 <= b", 
-                "x2 >= c"
-            ],
-            'variables': ['x1', 'x2']
-        },
-        {
-            'name': 'Quadratic System Test',
-            'description': 'Quadratic inequality with linear constraints',
-            'inequalities': [
-                "x1**2 - 4 >= 0",
-                "x1 + x2 <= a",
-                "x2 >= b"
-            ],
-            'variables': ['x1', 'x2']
-        },
-        {
-            'name': 'Rational System Test', 
-            'description': 'Rational inequality with linear constraints',
-            'inequalities': [
-                "(x1 + 1)/(x1 - 2) >= 0",
-                "x1 + x2 <= a",
-                "x2 >= b"
-            ],
-            'variables': ['x1', 'x2']
-        },
-        {
-            'name': 'Mixed Complex System Test',
-            'description': 'Complex system with multiple types of inequalities',
-            'inequalities': [
-                "x1**2 + a*x1 + b >= 0",
-                "(x1 + x2)/(x2 - c) <= d",
-                "x2 + e >= f",
-                "x1 - x2 >= g"
-            ],
-            'variables': ['x1', 'x2']
-        },
-        {
-            'name': 'Three Variable System Test',
-            'description': 'System with three variables requiring sequential elimination',
-            'inequalities': [
-                "x1 + x2 + x3 >= a",
-                "x1 - x2 <= b",
-                "x2 + x3 >= c", 
-                "x3 <= d"
-            ],
-            'variables': ['x1', 'x2', 'x3']
-        }
-    ]
-    
-    results = []
-    
-    for i, test_case in enumerate(test_cases, 1):
-        print(f"\nTEST CASE {i}: {test_case['name']}")
-        print(f"Description: {test_case['description']}")
-        print(f"Inequalities: {test_case['inequalities']}")
-        print(f"Variables to eliminate: {test_case['variables']}")
-        print("-" * 60)
-        
-        try:
-            success = demonstrate_enhanced_variable_elimination(
-                inequalities=test_case['inequalities'],
-                variables_to_eliminate=test_case['variables']
-            )
-            
-            results.append({
-                'test_case': test_case['name'],
-                'success': success,
-                'error': None
-            })
-            
-            if success:
-                print(f"✅ Test case {i} completed successfully")
-            else:
-                print(f"❌ Test case {i} failed")
-                
-        except Exception as e:
-            print(f"❌ Test case {i} failed with error: {e}")
-            traceback.print_exc()
-            results.append({
-                'test_case': test_case['name'],
-                'success': False,
-                'error': str(e)
-            })
-        
-        print("-" * 60)
-    
-    # Summary
-    print("\n" + "=" * 80)
-    print("TEST SUMMARY")
-    print("=" * 80)
-    
-    successful = sum(1 for r in results if r['success'])
-    total = len(results)
-    
-    print(f"Total tests: {total}")
-    print(f"Successful: {successful}")
-    print(f"Failed: {total - successful}")
-    print()
-    
-    for result in results:
-        status = "✅ PASS" if result['success'] else "❌ FAIL"
-        print(f"{status}: {result['test_case']}")
-        if result['error']:
-            print(f"    Error: {result['error']}")
-    
-    print("\n" + "=" * 80)
-    print("COMPREHENSIVE TESTING COMPLETED")
-    print("=" * 80)
-    
-    return results
-
-
-def validate_latex_output():
-    """
-    Validate that generated LaTeX files contain expected content.
-    """
-    print("\n" + "=" * 80)
-    print("VALIDATING LATEX OUTPUT")
-    print("=" * 80)
-    
-    output_dir = "/workspaces/codespaces-blank/output_final"
-    
-    if not os.path.exists(output_dir):
-        print("❌ Output directory does not exist")
-        return False
-    
-    latex_files = [f for f in os.listdir(output_dir) if f.endswith('.tex')]
-    
-    if not latex_files:
-        print("❌ No LaTeX files found in output directory")
-        return False
-    
-    print(f"Found {len(latex_files)} LaTeX files:")
-    
-    validation_results = []
-    
-    for filename in latex_files:
-        filepath = os.path.join(output_dir, filename)
-        print(f"\nValidating: {filename}")
-        
-        try:
-            with open(filepath, 'r') as f:
-                content = f.read()
-            
-            # Check for required LaTeX elements
-            checks = [
-                ('documentclass', '\\documentclass' in content),
-                ('amsmath package', '\\usepackage{amsmath}' in content),
-                ('title', '\\title{' in content),
-                ('begin document', '\\begin{document}' in content),
-                ('end document', '\\end{document}' in content),
-                ('section headers', '\\section{' in content),
-                ('math environments', '\\begin{align}' in content or '\\begin{equation}' in content),
-                ('hierarchical cases', 'Case ' in content),
-                ('variable elimination', 'Eliminate' in content or 'eliminate' in content),
-                ('4-step process', 'Step 1' in content and 'Step 2' in content and 'Step 3' in content and 'Step 4' in content)
-            ]
-            
-            passed_checks = sum(1 for _, check in checks if check)
-            total_checks = len(checks)
-            
-            print(f"  Validation checks: {passed_checks}/{total_checks}")
-            
-            for check_name, passed in checks:
-                status = "✅" if passed else "❌"
-                print(f"    {status} {check_name}")
-            
-            validation_results.append({
-                'filename': filename,
-                'passed_checks': passed_checks,
-                'total_checks': total_checks,
-                'success': passed_checks == total_checks
-            })
-            
-        except Exception as e:
-            print(f"  ❌ Error reading file: {e}")
-            validation_results.append({
-                'filename': filename,
-                'passed_checks': 0,
-                'total_checks': 10,
-                'success': False,
-                'error': str(e)
-            })
-    
-    # Summary
-    print("\n" + "-" * 60)
-    print("LATEX VALIDATION SUMMARY")
-    print("-" * 60)
-    
-    successful_files = sum(1 for r in validation_results if r['success'])
-    total_files = len(validation_results)
-    
-    print(f"Total LaTeX files: {total_files}")
-    print(f"Fully validated: {successful_files}")
-    print(f"Failed validation: {total_files - successful_files}")
-    
-    return successful_files == total_files
-
-
-if __name__ == "__main__":
-    """
-    Run comprehensive tests and validation.
-    """
-    print("STARTING COMPREHENSIVE TESTING AND VALIDATION")
-    print("=" * 80)
-    
-    # Run comprehensive tests
-    test_results = test_comprehensive_elimination()
-    
-    # Validate LaTeX output
-    latex_validation = validate_latex_output()
-    
-    print("\n" + "=" * 80)
-    print("FINAL SUMMARY")
-    print("=" * 80)
-    
-    total_tests = len(test_results)
-    successful_tests = sum(1 for r in test_results if r['success'])
-    
-    print(f"Test Results: {successful_tests}/{total_tests} passed")
-    print(f"LaTeX Validation: {'PASSED' if latex_validation else 'FAILED'}")
-    
-    if successful_tests == total_tests and latex_validation:
-        print("🎉 ALL TESTS PASSED - SYSTEM WORKING CORRECTLY")
-    else:
-        print("⚠️  SOME TESTS FAILED - REVIEW RESULTS ABOVE")
-
 
 def main():
     """
@@ -1574,8 +1346,6 @@ def main():
     - Detailed 4-step process documentation for each variable
     - Mathematical rigor in case differentiation and solving
     """
-    # Run the enhanced demonstration
-    demonstrate_enhanced_variable_elimination()
     print("ENHANCED HIERARCHICAL 4-STEP VARIABLE ELIMINATION SYSTEM")
     print("=" * 80)
     print()
