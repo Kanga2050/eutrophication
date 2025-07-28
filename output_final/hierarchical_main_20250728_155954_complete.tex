@@ -32,44 +32,6 @@ with condition-specific case naming. Each case and subcase header explicitly sho
 specific mathematical conditions that define that case, providing complete transparency
 in the case differentiation process.
 
-\subsection{Enhanced Hierarchical 4-Step Elimination Process}
-
-For each variable to be eliminated, we follow these enhanced steps:
-\begin{enumerate}
-\item \textbf{Isolate Variable}: Solve each inequality containing the target variable
-  \begin{itemize}
-    \item Convert $ax + b \geq c$ to $x \geq \frac{c-b}{a}$ (if $a > 0$) or $x \leq \frac{c-b}{a}$ (if $a < 0$)
-    \item Properly handle coefficient signs during isolation
-    \item Separate into lower bounds ($x \geq \text{expr}$) and upper bounds ($x \leq \text{expr}$)
-  \end{itemize}
-\item \textbf{Combine to Min/Max}: Form $\max(\text{lower bounds}) \leq \text{variable} \leq \min(\text{upper bounds})$
-  \begin{itemize}
-    \item Collect all lower bound expressions into $\max(\text{expr}_1, \text{expr}_2, \ldots)$
-    \item Collect all upper bound expressions into $\min(\text{expr}_1, \text{expr}_2, \ldots)$
-  \end{itemize}
-\item \textbf{Remove Variable}: Create elimination constraints $\max(\text{lower bounds}) \leq \min(\text{upper bounds})$
-  \begin{itemize}
-    \item Replace the variable with feasibility conditions
-    \item Generate constraint combinations for case expansion
-  \end{itemize}
-\item \textbf{Expand Cases}: Create hierarchical subcases for each min/max combination
-  \begin{itemize}
-    \item For each pair $(\text{lower}_i, \text{upper}_j)$: create case where $\text{lower}_i \leq \text{upper}_j$
-    \item Name each case with its specific defining conditions
-    \item Apply recursively to remaining variables
-  \end{itemize}
-\end{enumerate}
-
-\subsection{Enhanced Case Naming System}
-
-Cases are named hierarchically with their specific conditions:
-\begin{itemize}
-\item \textbf{Case 1: condition1, Case 2: condition2, ...}: Top-level cases with their defining conditions
-\item \textbf{Subcase 1.1: condition1 $\wedge$ subcondition1.1, ...}: First-level subcases
-\item \textbf{Subsubcase 1.1.1: condition1 $\wedge$ subcondition1.1 $\wedge$ subsubcondition1.1.1, ...}: Second-level subcases
-\item And so on for deeper nesting levels with complete condition inheritance
-\end{itemize}
-
 \section{Initial System}
 
 Starting with the following system of inequalities involving:
@@ -79,9 +41,9 @@ Starting with the following system of inequalities involving:
 \end{itemize}
 
 \begin{align}
-& \text{(1)} \quad x1 \cdot  \cdot 2 - a \cdot x1 + b \geq 0 \\
-& \text{(2)} \quad (x1 + x2)/(x2 - c) \geq 0 \\
-& \text{(3)} \quad x2 \leq d \\
+& \text{(1)} \quad x_{1} + x_{2} \leq a \\
+& \text{(2)} \quad x_{1} \geq b \\
+& \text{(3)} \quad x_{2} \geq c \\
 \end{align}
 
 Variables to eliminate (in order): $\{x_{1}, x_{2}\}$
@@ -89,80 +51,123 @@ Variables to eliminate (in order): $\{x_{1}, x_{2}\}$
 \textbf{Goal}: Eliminate all variables to obtain a system of inequalities
 involving only the constants $a, b, c, d, e, f, g, h, \ldots$
 
-\section{Case 1: $-a x1 + b + x1^2 >= 0$, $(x1 + x2)/(-c + x2) >= 0$, $x2 <= d$}
+\section{Case 1: $x_{1} + x_{2} \leq a$, $x_{1} \geq b$, $x_{2} \geq c$}
 
 Constraints for Case 1:
 \begin{align}
-& - a x_{1} + b + x_{1}^{2} >= 0 \\
-& \frac{x_{1} + x_{2}}{- c + x_{2}} >= 0 \\
-& x_{2} <= d \\
+& x_{1} + x_{2} \leq a \\
+& x_{1} \geq b \\
+& x_{2} \geq c \\
 \end{align}
 
-\textbf{Elimination of variable $x1$ in Case 1:}
+\textbf{Elimination of variable $x_{1}$ in Case 1:}
 
-\textbf{Step 1}: Inequalities after isolating $x1$:
+\textbf{Step 1}: Inequalities after isolating $x_{1}$:
 \begin{align}
-& x_{1} \geq 0 \\
-& x_{2} \leq d \\
+& x_{1} \leq a - x_{2} \\
+& x_{1} \geq b \\
+& x_{2} \geq c \\
 \end{align}
 
 \textbf{Step 2}: Inequalities after combining to min/max form:
 \begin{align}
-& x_{2} \leq d \\
+& x_{2} \geq c \\
+& \max\{b\} \leq x_{1} \leq \min\{a - x_{2}\} \\
 \end{align}
 
-\textbf{Step 3}: Inequalities after removing $x1$:
+\textbf{Step 3}: Inequalities after removing $x_{1}$:
 \begin{align}
-& x_{2} \leq d \\
+& x_{2} \geq c \\
+& b \leq a - x_{2} \\
 \end{align}
 
 \textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
 
-\section{Case 1: $x2 <= d$}
+\section{Case 1: $x_{2} \geq c$, $b \leq a - x_{2}$, $- a + b + x_{2} \leq 0$}
 
 Constraints for Case 1:
 \begin{align}
-& x_{2} <= d \\
+& x_{2} \geq c \\
+& b \leq a - x_{2} \\
+& - a + b + x_{2} \leq 0 \\
 \end{align}
 
-\textbf{Elimination of variable $x2$ in Case 1:}
+\textbf{Elimination of variable $x_{2}$ in Case 1:}
 
-\textbf{Step 1}: Inequalities after isolating $x2$:
+\textbf{Step 1}: Inequalities after isolating $x_{2}$:
 \begin{align}
-& x_{2} \geq 0 \\
+& x_{2} \geq c \\
+& b \leq a - x_{2} \\
+& x_{2} \leq a - b \\
 \end{align}
 
 \textbf{Step 2}: Inequalities after combining to min/max form:
 \begin{align}
+& b \leq a - x_{2} \\
+& \max\{c\} \leq x_{2} \leq \min\{a - b\} \\
+\end{align}
+
+\textbf{Step 3}: Inequalities after removing $x_{2}$:
+\begin{align}
+& c \leq a - b \\
 \end{align}
 
 \textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
 
-\section{Case 1}
-
-\section{Case 1: $x2 <= d$}
+\section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
 
 Constraints for Case 1:
 \begin{align}
-& x_{2} <= d \\
+& c \leq a - b \\
+& - a + b + c \leq 0 \\
 \end{align}
 
-\textbf{Elimination of variable $x2$ in Case 1:}
+\section{Case 1: $x_{2} \geq c$, $b \leq a - x_{2}$, $- a + b + x_{2} \leq 0$}
 
-\textbf{Step 1}: Inequalities after isolating $x2$:
+Constraints for Case 1:
 \begin{align}
-& x_{2} \geq 0 \\
+& x_{2} \geq c \\
+& b \leq a - x_{2} \\
+& - a + b + x_{2} \leq 0 \\
+\end{align}
+
+\textbf{Elimination of variable $x_{2}$ in Case 1:}
+
+\textbf{Step 1}: Inequalities after isolating $x_{2}$:
+\begin{align}
+& x_{2} \geq c \\
+& b \leq a - x_{2} \\
+& x_{2} \leq a - b \\
 \end{align}
 
 \textbf{Step 2}: Inequalities after combining to min/max form:
 \begin{align}
+& b \leq a - x_{2} \\
+& \max\{c\} \leq x_{2} \leq \min\{a - b\} \\
+\end{align}
+
+\textbf{Step 3}: Inequalities after removing $x_{2}$:
+\begin{align}
+& c \leq a - b \\
 \end{align}
 
 \textbf{Step 4}: Expanded into 1 subcase(s). Inequalities for each subcase are shown below.
 
-\section{Case 1}
+\section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
 
-\section{Case 1}
+Constraints for Case 1:
+\begin{align}
+& c \leq a - b \\
+& - a + b + c \leq 0 \\
+\end{align}
+
+\section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
+
+Constraints for Case 1:
+\begin{align}
+& c \leq a - b \\
+& - a + b + c \leq 0 \\
+\end{align}
 
 \section{Final Solution Summary}
 
@@ -172,8 +177,16 @@ using the enhanced hierarchical 4-step process, we obtain the following
 
 \subsection{Final Case 1: Case 1}
 
-This case has no constraints and represents the region where the original
-system is always satisfied (unconditionally feasible region).
+This case represents the solution region defined by:
+\begin{align}
+& c \leq a - b \\
+& - a + b + c \leq 0 \\
+\end{align}
+
+\begin{stepdetail}
+\textbf{Interpretation}: This final case represents all parameter values
+$(a, b, c, d, e, f, g, h, \ldots)$ for which the original system has solutions.
+\end{stepdetail}
 
 \section{Conclusion}
 
