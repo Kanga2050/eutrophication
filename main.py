@@ -1,25 +1,26 @@
 """
-Hierarchical Case-Based Variable Elimination with Enhanced LaTeX Generation
+Simplified Hierarchical Variable Elimination with No Constraint/Inequality Separation
 
-This module implements a complete 4-step variable elimination process with
-hierarchical case structures and descriptive naming (case 1, subcase 1.1, 
-subsubcase 1.1.2, etc.). Each subcase is solved individually and included
-in the final enhanced hierarchical LaTeX output with proper case labeling.
+This module implements a complete 4-step variable elimination process where ALL results
+are treated as inequalities within cases. There is no distinction between constraints
+and inequalities - everything must be satisfied within each case.
+
+Key Principle: At the end, we can just say all the inequalities in one of the cases needs to be true.
 
 Essential Components:
-- HierarchicalCaseEliminator: Manages hierarchical case structure
+- HierarchicalCaseEliminator: Manages hierarchical case structure with inequalities only
 - CaseNamingSystem: Provides descriptive case numbering
 - HierarchicalLatexGenerator: Generates comprehensive LaTeX with case hierarchy
 - 4-Step Elimination Process for each variable
-- Individual subcase solving and documentation
+- Individual subcase solving with only inequalities
 
 LaTeX Generation:
-Only generates the enhanced hierarchical LaTeX documentation through
-HierarchicalLatexGenerator, providing complete step-by-step elimination
-process documentation with proper mathematical formatting.
+Only generates the enhanced hierarchical LaTeX documentation where all results
+are shown as inequalities within cases, with complete step-by-step elimination
+process documentation and proper mathematical formatting.
 
-Author: Rational Inequality Solver Team
-Version: Hierarchical Case Management with Enhanced LaTeX-Only Output
+Author: Simplified Rational Inequality Solver Team
+Version: No Constraint/Inequality Separation - Pure Inequality System
 """
 from sympy import symbols, simplify, solve, latex, Max, Min, sympify, S
 from datetime import datetime
@@ -82,7 +83,7 @@ class CaseNamingSystem:
 
 
 class HierarchicalCase:
-    """Represents a case in the hierarchical structure"""
+    """Represents a case in the hierarchical structure with only inequalities"""
     
     def __init__(self, name, case_id, inequalities, parent=None, level=0):
         self.name = name
@@ -93,7 +94,6 @@ class HierarchicalCase:
         self.subcases = []
         self.elimination_steps = []
         self.is_solved = False
-        self.solution_constraints = []
     
     def add_subcase(self, subcase):
         """Add a subcase to this case"""
@@ -104,12 +104,12 @@ class HierarchicalCase:
         self.elimination_steps.append(step)
     
     def solve_case(self, solver_func=None):
-        """Solve this individual case"""
+        """Solve this individual case - all results are inequalities"""
         if self.is_solved:
-            return self.solution_constraints
+            return self.inequalities
             
         try:
-            # If no more variables to eliminate, this is a final constraint case
+            # Check if any variables remain to be eliminated
             has_variables = False
             for ineq in self.inequalities:
                 if len(ineq) >= 3:
@@ -130,25 +130,22 @@ class HierarchicalCase:
                     break
             
             if not has_variables:
-                # No more variables to eliminate
-                self.solution_constraints = self.inequalities
+                # No more variables to eliminate - this is a final case with only inequalities
                 self.is_solved = True
-                return self.solution_constraints
+                return self.inequalities
             
             # Otherwise, additional processing needed
-            self.solution_constraints = self.inequalities
             self.is_solved = True
-            return self.solution_constraints
+            return self.inequalities
             
         except Exception as e:
             print(f"Error solving case {self.name}: {e}")
-            self.solution_constraints = []
             self.is_solved = True
-            return self.solution_constraints
+            return self.inequalities
 
 
 class HierarchicalCaseEliminator:
-    """Implements 4-step variable elimination with hierarchical case management"""
+    """Implements 4-step variable elimination with hierarchical case management - inequalities only"""
     
     def __init__(self, use_sign_analysis=True):
         self.naming_system = CaseNamingSystem()
@@ -157,17 +154,17 @@ class HierarchicalCaseEliminator:
         self.use_sign_analysis = use_sign_analysis
         self.sign_analyzer = create_default_analyzer() if use_sign_analysis else None
     
-    def _check_constraint_validity(self, constraint):
+    def _check_inequality_validity(self, inequality):
         """
-        Check if a constraint is valid, removing impossible cases and tautologies.
+        Check if an inequality is valid, removing impossible cases and tautologies.
         
         Args:
-            constraint: Tuple of (lhs, op, rhs)
+            inequality: Tuple of (lhs, op, rhs)
             
         Returns:
             'valid', 'tautology', or 'impossible'
         """
-        lhs, op, rhs = constraint
+        lhs, op, rhs = inequality
         
         try:
             # Check if both sides are numbers
@@ -246,60 +243,61 @@ class HierarchicalCaseEliminator:
             return 'valid'
             
         except Exception as e:
-            print(f"          Warning: Could not check constraint validity: {e}")
+            print(f"          Warning: Could not check inequality validity: {e}")
             return 'valid'
     
-    def _filter_constraints(self, constraints):
+    def _filter_inequalities(self, inequalities):
         """
-        Filter constraints, removing impossible ones and noting tautologies.
+        Filter inequalities, removing impossible ones and noting tautologies.
         
         Args:
-            constraints: List of (lhs, op, rhs) tuples
+            inequalities: List of (lhs, op, rhs) tuples
             
         Returns:
-            Tuple of (filtered_constraints, is_impossible_case)
+            Tuple of (filtered_inequalities, is_impossible_case)
         """
         filtered = []
         is_impossible = False
         
-        print(f"        Checking {len(constraints)} constraints for validity...")
+        print(f"        Checking {len(inequalities)} inequalities for validity...")
         
-        for i, constraint in enumerate(constraints):
-            lhs, op, rhs = constraint
-            print(f"          Constraint {i+1}: {lhs} {op} {rhs}")
+        for i, inequality in enumerate(inequalities):
+            lhs, op, rhs = inequality
+            print(f"          Inequality {i+1}: {lhs} {op} {rhs}")
             
-            validity = self._check_constraint_validity(constraint)
+            validity = self._check_inequality_validity(inequality)
             
             if validity == 'impossible':
-                print(f"          -> Case is IMPOSSIBLE due to this constraint")
+                print(f"          -> Case is IMPOSSIBLE due to this inequality")
                 is_impossible = True
-                break  # No need to check other constraints
+                break  # No need to check other inequalities
             elif validity == 'tautology':
-                print(f"          -> Constraint is always true, removing from case")
+                print(f"          -> Inequality is always true, removing from case")
                 # Don't add tautologies to the filtered list
             else:
-                print(f"          -> Constraint is valid, keeping")
-                filtered.append(constraint)
+                print(f"          -> Inequality is valid, keeping")
+                filtered.append(inequality)
         
-        print(f"        Result: {len(filtered)} constraints remain, impossible={is_impossible}")
+        print(f"        Result: {len(filtered)} inequalities remain, impossible={is_impossible}")
         return filtered, is_impossible
     
     def eliminate_variables_hierarchical(self, inequalities, variables_to_eliminate):
         """
-        Main elimination function with hierarchical case management
+        Main elimination function with hierarchical case management - inequalities only
         """
         print("=" * 80)
         print("HIERARCHICAL VARIABLE ELIMINATION WITH 4-STEP PROCESS")
+        print("ALL RESULTS ARE INEQUALITIES - NO CONSTRAINT/INEQUALITY SEPARATION")
         print("=" * 80)
         
         # Initialize with the root case
         processed_ineqs = process_inequalities(inequalities)
         
-        # Filter initial constraints
-        filtered_ineqs, is_impossible = self._filter_constraints(processed_ineqs)
+        # Filter initial inequalities
+        filtered_ineqs, is_impossible = self._filter_inequalities(processed_ineqs)
         
         if is_impossible:
-            print("SYSTEM IS IMPOSSIBLE: Initial constraints are contradictory")
+            print("SYSTEM IS IMPOSSIBLE: Initial inequalities are contradictory")
             print("No solution exists for this system")
             return []
         
@@ -333,7 +331,7 @@ class HierarchicalCaseEliminator:
                     subcase.solve_case()
                     new_cases.append(subcase)
                     self.all_cases.append(subcase)
-                    print(f"    -> Generated {subcase.name}: {len(subcase.inequalities)} constraints")
+                    print(f"    -> Generated {subcase.name}: {len(subcase.inequalities)} inequalities")
             
             current_cases = new_cases
             print(f"\nAfter eliminating '{variable}': {len(current_cases)} total case(s)")
@@ -626,18 +624,18 @@ class HierarchicalCaseEliminator:
                 lhs, op, rhs = ineq
                 print(f"          {i}. {lhs} {op} {rhs}")
         
-        # Filter constraints and check for impossible cases
-        filtered_step3_inequalities, is_impossible = self._filter_constraints(step3_inequalities)
+        # Filter inequalities and check for impossible cases
+        filtered_step3_inequalities, is_impossible = self._filter_inequalities(step3_inequalities)
         
         if is_impossible:
-            print(f"        WARNING: Step 3 resulted in impossible constraints")
+            print(f"        WARNING: Step 3 resulted in impossible inequalities")
             print(f"        This branch of the case tree should be pruned")
         
         print(f"        STEP 3 SUMMARY:")
         print(f"          Generated {len(elimination_constraints)} elimination constraint(s)")
         for i, constraint in enumerate(elimination_constraints, 1):
             print(f"            {i}. {constraint}")
-        print(f"          Constraints after filtering: {len(filtered_step3_inequalities)}")
+        print(f"          Inequalities after filtering: {len(filtered_step3_inequalities)}")
         print()
         
         return {
@@ -724,8 +722,8 @@ class HierarchicalCaseEliminator:
                     constraint = (lower_expr - upper_expr, '<=', 0)
                     subcase_inequalities = list(not_involving_var) + [constraint]
                     
-                    # Filter constraints and check for impossible cases
-                    filtered_constraints, is_impossible = self._filter_constraints(subcase_inequalities)
+                    # Filter inequalities and check for impossible cases
+                    filtered_inequalities, is_impossible = self._filter_inequalities(subcase_inequalities)
                     
                     if is_impossible:
                         print(f"          {subcase_name}: IMPOSSIBLE CASE - skipping")
@@ -733,9 +731,9 @@ class HierarchicalCaseEliminator:
                         print()
                         continue  # Skip this impossible subcase
                     
-                    # Create subcase with filtered constraints
+                    # Create subcase with filtered inequalities
                     subcase = HierarchicalCase(
-                        subcase_name, subcase_id, filtered_constraints,
+                        subcase_name, subcase_id, filtered_inequalities,
                         parent=parent_case, level=subcase_level
                     )
                     
@@ -746,11 +744,11 @@ class HierarchicalCaseEliminator:
                     print(f"            Condition: {lower_expr} ≤ {upper_expr}")
                     print(f"            Mathematical form: {lower_expr} - ({upper_expr}) ≤ 0")
                     print(f"            INEQUALITIES AFTER STEP 4 (filtered):")
-                    for k, ineq in enumerate(filtered_constraints, 1):
+                    for k, ineq in enumerate(filtered_inequalities, 1):
                         if len(ineq) == 3:
                             lhs, op, rhs = ineq
                             print(f"              {k}. {lhs} {op} {rhs}")
-                    print(f"            Total constraints in subcase: {len(filtered_constraints)}")
+                    print(f"            Total inequalities in subcase: {len(filtered_inequalities)}")
                     print()
                     
         elif len(lower_exprs) > 1:
@@ -786,7 +784,7 @@ class HierarchicalCaseEliminator:
                         tightness_constraints.append(f"{tightest_lower} ≥ {other_lower}")
                 
                 # Filter constraints and check for impossible cases
-                filtered_constraints, is_impossible = self._filter_constraints(case_constraints)
+                filtered_constraints, is_impossible = self._filter_inequalities(case_constraints)
                 
                 if is_impossible:
                     print(f"          {subcase_name}: IMPOSSIBLE CASE - skipping")
@@ -848,7 +846,7 @@ class HierarchicalCaseEliminator:
                         tightness_constraints.append(f"{tightest_upper} ≤ {other_upper}")
                 
                 # Filter constraints and check for impossible cases
-                filtered_constraints, is_impossible = self._filter_constraints(case_constraints)
+                filtered_constraints, is_impossible = self._filter_inequalities(case_constraints)
                 
                 if is_impossible:
                     print(f"          {subcase_name}: IMPOSSIBLE CASE - skipping")
@@ -883,7 +881,7 @@ class HierarchicalCaseEliminator:
             )
             
             # Filter constraints and check for impossible cases
-            filtered_constraints, is_impossible = self._filter_constraints(list(not_involving_var))
+            filtered_constraints, is_impossible = self._filter_inequalities(list(not_involving_var))
             
             if is_impossible:
                 print(f"          {subcase_name}: IMPOSSIBLE CASE - skipping")
@@ -1154,18 +1152,13 @@ class HierarchicalCaseEliminator:
 
 def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_eliminate=None):
     """
-    Hierarchical variable elimination with enhanced LaTeX generation.
+    Simplified hierarchical variable elimination with no constraint/inequality separation.
     
-    This function implements the complete 4-step variable elimination process with
-    hierarchical case structures, individual subcase solving, and comprehensive
-    LaTeX documentation through the HierarchicalLatexGenerator.
+    This function implements the complete 4-step variable elimination process where
+    ALL results are treated as inequalities within cases. There is no distinction
+    between constraints and inequalities - everything must be satisfied within each case.
     
-    Key Features:
-    - Hierarchical case naming with conditions (case 1: condition1, subcase 1.1: condition1 ∧ condition2)
-    - Detailed 4-step process documentation for each variable
-    - Individual subcase solving with condition tracking
-    - Single comprehensive LaTeX generation with step-by-step explanations
-    - Complete mathematical rigor in case differentiation
+    Key Principle: At the end, we can just say all the inequalities in one of the cases needs to be true.
     
     4-Step Process for Each Variable:
     1. **Isolate Variable**: Solve each inequality containing the target variable
@@ -1177,7 +1170,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
        - Collect all upper bound expressions into min() form
        - Create unified constraint for the variable
     
-    3. **Remove Variable**: Create elimination constraints max(lower) ≤ min(upper)
+    3. **Remove Variable**: Create elimination inequalities max(lower) ≤ min(upper)
        - Replace variable with the min/max constraints
        - Generate feasibility conditions for the system
     
@@ -1187,11 +1180,11 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
        - Recursively apply to all remaining variables
     
     LaTeX Output:
-    Generates only one comprehensive LaTeX file with complete hierarchical
-    documentation, eliminating redundant LaTeX generation from intermediate steps.
+    Generates only one comprehensive LaTeX file where all results are shown as
+    inequalities within cases, with complete hierarchical documentation.
     """
     print("=" * 80)
-    print("ENHANCED HIERARCHICAL VARIABLE ELIMINATION WITH 4-STEP PROCESS")  
+    print("SIMPLIFIED VARIABLE ELIMINATION - NO CONSTRAINT/INEQUALITY SEPARATION")  
     print("=" * 80)
     
     # Use provided inequalities or enhanced default example system
@@ -1218,7 +1211,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
         # Extract variables (assume variables start with 'x')
         variables_to_eliminate = sorted([str(s) for s in all_symbols if str(s).startswith('x')])
     
-    print("ENHANCED HIERARCHICAL SYSTEM:")
+    print("SIMPLIFIED SYSTEM (inequalities only):")
     print("Variables are represented as x1, x2, x3, x4, ...")
     print("Constants are represented as a, b, c, d, e, f, g, h, ...")
     print()
@@ -1227,7 +1220,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
         print(f"  {i}. {ineq}")
     
     print(f"\nVariables to eliminate (in order): {variables_to_eliminate}")
-    print("\nThis system will be processed using the enhanced hierarchical 4-step elimination method:")
+    print("\nThis system will be processed using the simplified 4-step elimination method:")
     print("1. **Isolate Variable**: Solve each inequality for the target variable")
     print("   - Handle coefficient signs properly when isolating")
     print("   - Separate into lower bounds (x ≥ expr) and upper bounds (x ≤ expr)")
@@ -1236,7 +1229,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
     print("   - Collect all lower bound expressions")
     print("   - Collect all upper bound expressions")
     print()
-    print("3. **Remove Variable**: Create elimination constraints max(lower) ≤ min(upper)")
+    print("3. **Remove Variable**: Create elimination inequalities max(lower) ≤ min(upper)")
     print("   - Replace variable with feasibility conditions")
     print()
     print("4. **Expand Cases**: Create hierarchical subcases for each min/max combination")
@@ -1244,15 +1237,17 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
     print("   - Name cases with their specific conditions")
     print("   - Apply recursively to remaining variables")
     print()
+    print("IMPORTANT: ALL results are inequalities within cases (no constraint separation)")
+    print()
     
     try:
-        # Create enhanced hierarchical eliminator
+        # Create simplified hierarchical eliminator
         eliminator = HierarchicalCaseEliminator(use_sign_analysis=True)
         
-        # Perform hierarchical elimination with enhanced documentation
+        # Perform hierarchical elimination with simplified documentation
         final_cases = eliminator.eliminate_variables_hierarchical(inequalities, variables_to_eliminate)
         
-        print(f"✅ Generated {len(final_cases)} final cases using enhanced hierarchical 4-step elimination:")
+        print(f"✅ Generated {len(final_cases)} final cases using simplified 4-step elimination:")
         
         for case in final_cases:
             print(f"\n  {case.name}:")
@@ -1270,11 +1265,11 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
             print(f"    Level: {case.level}")
             
             if not case.inequalities:
-                print(f"    No constraints (always satisfied)")
+                print(f"    No inequalities (always satisfied)")
             else:
-                print(f"    Final constraints:")
-                for i, constraint in enumerate(case.inequalities, 1):
-                    expr, op, rhs = constraint
+                print(f"    Final inequalities:")
+                for i, inequality in enumerate(case.inequalities, 1):
+                    expr, op, rhs = inequality
                     if rhs == 0:
                         simplified_expr = simplify(expr)
                         if simplified_expr == expr:
@@ -1284,7 +1279,7 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
                     else:
                         print(f"      {i}. {expr} {op} {rhs}")
         
-        # Generate enhanced hierarchical LaTeX documentation
+        # Generate simplified hierarchical LaTeX documentation
         latex_generator = HierarchicalLatexGenerator()
         latex_content = latex_generator.generate_hierarchical_latex(
             eliminator.all_cases, variables_to_eliminate, inequalities
@@ -1295,31 +1290,32 @@ def demonstrate_enhanced_variable_elimination(inequalities=None, variables_to_el
         os.makedirs(output_dir, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{output_dir}/hierarchical_main_{timestamp}_complete.tex"
+        filename = f"{output_dir}/simplified_elimination_{timestamp}.tex"
         
         with open(filename, 'w') as f:
             f.write(latex_content)
         
-        print(f"\n✅ Generated ENHANCED HIERARCHICAL LaTeX: {filename}")
+        print(f"\n✅ Generated SIMPLIFIED LaTeX: {filename}")
         
-        # Display enhanced case analysis
+        # Display simplified case analysis
         display_hierarchical_case_analysis(eliminator.all_cases)
         
         print("\n" + "="*60)
-        print("ENHANCED HIERARCHICAL VARIABLE ELIMINATION COMPLETED")
+        print("SIMPLIFIED VARIABLE ELIMINATION COMPLETED")
         print("="*60)
         print()
         print("Key Features:")
-        print("• Single comprehensive LaTeX file with case conditions")
+        print("• Single comprehensive LaTeX file with no constraint/inequality separation")
+        print("• All results are inequalities within cases")
         print("• Detailed 4-step process documentation")
-        print("• Mathematical rigor in case differentiation")
+        print("• Mathematical clarity with unified treatment")
         print("• Complete path tracing for each final case")
-        print("• Enhanced hierarchical structure with step-by-step explanations")
+        print("• Simplified structure: inequalities only")
         
         return True
         
     except Exception as e:
-        print(f"Error during enhanced hierarchical variable elimination: {e}")
+        print(f"Error during simplified variable elimination: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -1389,9 +1385,9 @@ class HierarchicalLatexGenerator:
             "  {\\begin{quote}\\small\\color{blue}}",
             "  {\\end{quote}}",
             "",
-            "\\title{Enhanced Hierarchical Variable Elimination: \\\\",
-            "Complete 4-Step Process with Condition-Specific Case Management}",
-            "\\author{Enhanced Rational Inequality Solver with Case Conditions}",
+            "\\title{Complete 4-Step Variable Elimination Process: \\\\",
+            "No Constraint/Inequality Separation - Pure Inequality System}",
+            "\\author{Simplified Rational Inequality Solver}",
             "\\date{\\today}",
             "",
             "\\begin{document}",
@@ -1401,12 +1397,26 @@ class HierarchicalLatexGenerator:
         
         # Enhanced introduction
         latex_content.extend([
-            "\\section{Introduction}",
+            "\\section{Overview}",
             "",
-            "This document demonstrates the enhanced hierarchical 4-step variable elimination process",
-            "with condition-specific case naming. Each case and subcase header explicitly shows the",
-            "specific mathematical conditions that define that case, providing complete transparency",
-            "in the case differentiation process.",
+            "This document presents a complete 4-step variable elimination process where",
+            "\\textbf{ALL results are treated as inequalities within cases}. There is",
+            "\\textbf{no distinction between constraints and inequalities} - everything",
+            "must be satisfied within each case.",
+            "",
+            "\\textbf{Key Principle:}",
+            "\\begin{quote}",
+            "\\textit{At the end, we can just say all the inequalities in one of the cases needs to be true.}",
+            "\\end{quote}",
+            "",
+            "\\textbf{System Features:}",
+            "\\begin{itemize}",
+            "\\item No separation between constraints and inequalities",
+            "\\item All results are inequalities within cases",
+            "\\item Detailed 4-step process for each variable",
+            "\\item Complete mathematical documentation",
+            "\\item Hierarchical case structure",
+            "\\end{itemize}",
             ""
         ])
         
@@ -1469,7 +1479,7 @@ class HierarchicalLatexGenerator:
             
             if not case.inequalities:
                 latex_content.extend([
-                    "This case has no constraints and represents the region where the original",
+                    "This case has no inequalities and represents the region where the original",
                     "system is always satisfied (unconditionally feasible region).",
                     ""
                 ])
@@ -1479,8 +1489,8 @@ class HierarchicalLatexGenerator:
                     "\\begin{align}"
                 ])
                 
-                for constraint in case.inequalities:
-                    expr, op, rhs = constraint
+                for inequality in case.inequalities:
+                    expr, op, rhs = inequality
                     formatted_expr = self.format_expr(expr)
                     formatted_rhs = self.format_expr(rhs)
                     formatted_op = self.format_inequality_operator(op)
@@ -1500,17 +1510,26 @@ class HierarchicalLatexGenerator:
         latex_content.extend([
             "\\section{Conclusion}",
             "",
-            "The enhanced hierarchical 4-step variable elimination process provides:",
+            "The complete 4-step variable elimination process with no constraint/inequality separation provides:",
             "\\begin{itemize}",
-            "\\item \\textbf{Complete Mathematical Rigor}: Each step is mathematically justified",
-            "\\item \\textbf{Transparent Case Differentiation}: Every case shows its defining conditions",
-            "\\item \\textbf{Systematic Variable Elimination}: Variables are eliminated in specified order",
+            "\\item \\textbf{Unified Treatment}: All results are inequalities within cases",
+            "\\item \\textbf{Mathematical Clarity}: No artificial distinction between constraint types",
+            "\\item \\textbf{Systematic Elimination}: Variables are eliminated in specified order",
             "\\item \\textbf{Hierarchical Organization}: Complex case structures are clearly organized",
-            "\\item \\textbf{Verifiable Results}: Each step can be independently verified",
+            "\\item \\textbf{Simple Interpretation}: Final result requires all inequalities in one case to be true",
             "\\end{itemize}",
             "",
-            f"The final result characterizes the complete solution space of the original system",
-            f"through {len(final_cases)} distinct case(s), each with explicit parameter constraints.",
+            f"This elimination process demonstrates that:",
+            "\\begin{itemize}",
+            "\\item All results are expressed as inequalities within cases",
+            "\\item No distinction is made between constraints and inequalities",
+            "\\item The final solution requires all inequalities in one of the cases to be true",
+            "\\item The 4-step process systematically eliminates each variable",
+            "\\end{itemize}",
+            "",
+            f"The final result characterizes the complete solution space through",
+            f"{len(final_cases)} distinct case(s), where each case contains only inequalities",
+            f"that must all be satisfied simultaneously.",
             ""
         ])
         
@@ -1546,15 +1565,15 @@ class HierarchicalLatexGenerator:
                 ""
             ])
         
-        # Show case constraints with detailed explanation
+        # Show case inequalities with detailed explanation
         if case.inequalities:
             latex_content.extend([
-                f"Constraints for {case.name}:",
+                f"Inequalities for {case.name}:",
                 "\\begin{align}"
             ])
             
-            for constraint in case.inequalities:
-                expr, op, rhs = constraint
+            for inequality in case.inequalities:
+                expr, op, rhs = inequality
                 formatted_expr = self.format_expr(expr)
                 formatted_rhs = self.format_expr(rhs)
                 formatted_op = self.format_inequality_operator(op)
@@ -1761,10 +1780,10 @@ def display_hierarchical_case_analysis(all_cases):
     for case in final_cases:
         print(f"{case.name}:")
         print(f"  Level: {case.level}")
-        print(f"  Constraints: {len(case.inequalities)}")
+        print(f"  Inequalities: {len(case.inequalities)}")
         
-        for j, constraint in enumerate(case.inequalities, 1):
-            expr, op, rhs = constraint
+        for j, inequality in enumerate(case.inequalities, 1):
+            expr, op, rhs = inequality
             print(f"    {j}. {expr} {op} {rhs}")
         
         print(f"  Solution status: {'Solved' if case.is_solved else 'Unsolved'}")
@@ -1778,11 +1797,13 @@ def display_hierarchical_case_analysis(all_cases):
 
 def main():
     """
-    Enhanced main function for generating hierarchical 4-step elimination files.
+    Simplified main function for pure inequality-based elimination.
     
     This main function demonstrates the complete 4-step variable elimination process
-    where single subcases don't create additional nesting levels, making the case
-    structure more logical (e.g., 1.1.1, 1.1.2 instead of 1.1.1.1, 1.1.1.2).
+    where ALL results are treated as inequalities within cases. There is no distinction
+    between constraints and inequalities - everything must be satisfied within each case.
+    
+    Key Principle: At the end, we can just say all the inequalities in one of the cases needs to be true.
     
     The process follows these steps for each variable:
     
@@ -1807,19 +1828,25 @@ def main():
     
     Output:
     - Single comprehensive LaTeX document with hierarchical case structure
-    - Each case/subcase header shows the specific conditions
+    - Each case/subcase contains only inequalities (no separate constraints)
     - Detailed 4-step process documentation for each variable
     - Mathematical rigor in case differentiation and solving
     
     LaTeX Generation:
     - Only generates one enhanced hierarchical LaTeX file per test case
-    - Eliminates redundant LaTeX generation from intermediate processing steps
+    - All results are shown as inequalities within cases
     - Provides complete documentation in a single comprehensive document
     """
-    print("ENHANCED HIERARCHICAL 4-STEP VARIABLE ELIMINATION SYSTEM")
+    print("SIMPLIFIED 4-STEP VARIABLE ELIMINATION SYSTEM")
+    print("NO CONSTRAINT/INEQUALITY SEPARATION - PURE INEQUALITY SYSTEM")
+    print("=" * 80)
     print("=" * 80)
     print()
-    print("This system implements a complete 4-step variable elimination process:")
+    print("This system implements a complete 4-step variable elimination process where")
+    print("ALL results are treated as inequalities within cases.")
+    print()
+    print("KEY PRINCIPLE: At the end, we can just say all the inequalities")
+    print("               in one of the cases needs to be true.")
     print()
     print("STEP 1: ISOLATE VARIABLE")
     print("  • Convert ax + b ≥ c to x ≥ (c-b)/a or x ≤ (c-b)/a")
@@ -1832,7 +1859,7 @@ def main():
     print("  • Form: max(lower_bounds) ≤ variable ≤ min(upper_bounds)")
     print()
     print("STEP 3: REMOVE VARIABLE")
-    print("  • Create elimination constraint: max(lower_bounds) ≤ min(upper_bounds)")
+    print("  • Create elimination inequality: max(lower_bounds) ≤ min(upper_bounds)")
     print("  • Replace variable with feasibility conditions")
     print()
     print("STEP 4: EXPAND CASES")
@@ -1841,12 +1868,15 @@ def main():
     print("  • Name each case with its specific conditions")
     print("  • Apply recursively to remaining variables")
     print()
+    print("IMPORTANT: No distinction between constraints and inequalities!")
+    print("          Everything is an inequality within a case.")
+    print()
     
     # Test cases to verify all functionality
     test_cases = [
         {
             "name": "Simple Linear System Test",
-            "description": "Simple linear inequalities with two variables",
+            "description": "Simple linear inequalities with two variables - pure inequality system",
             "inequalities": [
                 "x1 + x2 <= a",
                 "x1 >= b", 
@@ -1856,7 +1886,7 @@ def main():
         },
         {
             "name": "Linear System with Three Variables",
-            "description": "Linear constraints with three variables",
+            "description": "Linear inequalities with three variables - no constraint separation",
             "inequalities": [
                 "x1 + x2 + x3 <= a",
                 "x1 - x2 >= b",
@@ -1866,8 +1896,8 @@ def main():
             "variables": ["x1", "x2", "x3"]
         },
         {
-            "name": "Mixed Constraint System",
-            "description": "Mixed linear constraints with multiple bounds",
+            "name": "Mixed Inequality System",
+            "description": "Mixed linear inequalities with multiple bounds - all treated as inequalities",
             "inequalities": [
                 "2*x1 + x2 <= a",
                 "x1 - 3*x2 >= b",
@@ -1918,8 +1948,8 @@ def main():
         print()
         print("Generated file features:")
         print("• Single comprehensive LaTeX file per test case")
+        print("• All results are inequalities within cases (no constraint separation)")
         print("• Case headers include specific conditions")
-        print("• Single subcases don't create extra nesting levels")
         print("• Complete 4-step process documentation for each variable")
         print("• Hierarchical subcase structure with logical naming")
         print("• Mathematical rigor in case differentiation")
@@ -1933,16 +1963,18 @@ def main():
         print("3. Hierarchical case expansion with logical numbering")
         print("4. Final solution cases with all variables eliminated")
         print("5. Mathematical verification of each elimination step")
+        print("6. ALL RESULTS AS INEQUALITIES (no constraint/inequality separation)")
         print()
         print("IMPORTANT: Only one comprehensive LaTeX file is generated per test case")
-        print("Previous versions that generated multiple LaTeX files have been removed")
+        print("All results show that inequalities within cases must all be satisfied")
         print()
         print("VERIFICATION INSTRUCTIONS:")
         print("1. Open the generated .tex files")
         print("2. Compile with LaTeX to verify formatting")
         print("3. Check that case numbering follows pattern: 1.1.1, 1.1.2 (not 1.1.1.1)")
         print("4. Verify all 4 steps are documented for each variable")
-        print("5. Confirm rational and quadratic inequalities are handled correctly")
+        print("5. Confirm all results are shown as inequalities within cases")
+        print("6. Verify no constraint/inequality separation exists")
     else:
         print("❌ Some test cases failed")
         print("Check error messages above for details")

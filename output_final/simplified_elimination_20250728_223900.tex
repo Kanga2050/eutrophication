@@ -17,20 +17,34 @@
   {\begin{quote}\small\color{blue}}
   {\end{quote}}
 
-\title{Enhanced Hierarchical Variable Elimination: \\
-Complete 4-Step Process with Condition-Specific Case Management}
-\author{Enhanced Rational Inequality Solver with Case Conditions}
+\title{Complete 4-Step Variable Elimination Process: \\
+No Constraint/Inequality Separation - Pure Inequality System}
+\author{Simplified Rational Inequality Solver}
 \date{\today}
 
 \begin{document}
 \maketitle
 
-\section{Introduction}
+\section{Overview}
 
-This document demonstrates the enhanced hierarchical 4-step variable elimination process
-with condition-specific case naming. Each case and subcase header explicitly shows the
-specific mathematical conditions that define that case, providing complete transparency
-in the case differentiation process.
+This document presents a complete 4-step variable elimination process where
+\textbf{ALL results are treated as inequalities within cases}. There is
+\textbf{no distinction between constraints and inequalities} - everything
+must be satisfied within each case.
+
+\textbf{Key Principle:}
+\begin{quote}
+\textit{At the end, we can just say all the inequalities in one of the cases needs to be true.}
+\end{quote}
+
+\textbf{System Features:}
+\begin{itemize}
+\item No separation between constraints and inequalities
+\item All results are inequalities within cases
+\item Detailed 4-step process for each variable
+\item Complete mathematical documentation
+\item Hierarchical case structure
+\end{itemize}
 
 \section{Initial System}
 
@@ -53,7 +67,7 @@ involving only the constants $a, b, c, d, e, f, g, h, \ldots$
 
 \section{Case 1: $x_{1} + x_{2} \leq a$, $x_{1} \geq b$, $x_{2} \geq c$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & x_{1} + x_{2} \leq a \\
 & x_{1} \geq b \\
@@ -85,7 +99,7 @@ Constraints for Case 1:
 
 \section{Case 1: $x_{2} \geq c$, $b \leq a - x_{2}$, $- a + b + x_{2} \leq 0$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & x_{2} \geq c \\
 & b \leq a - x_{2} \\
@@ -116,7 +130,7 @@ Constraints for Case 1:
 
 \section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & c \leq a - b \\
 & - a + b + c \leq 0 \\
@@ -124,7 +138,7 @@ Constraints for Case 1:
 
 \section{Case 1: $x_{2} \geq c$, $b \leq a - x_{2}$, $- a + b + x_{2} \leq 0$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & x_{2} \geq c \\
 & b \leq a - x_{2} \\
@@ -155,7 +169,7 @@ Constraints for Case 1:
 
 \section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & c \leq a - b \\
 & - a + b + c \leq 0 \\
@@ -163,7 +177,7 @@ Constraints for Case 1:
 
 \section{Case 1: $c \leq a - b$, $- a + b + c \leq 0$}
 
-Constraints for Case 1:
+Inequalities for Case 1:
 \begin{align}
 & c \leq a - b \\
 & - a + b + c \leq 0 \\
@@ -190,16 +204,25 @@ $(a, b, c, d, e, f, g, h, \ldots)$ for which the original system has solutions.
 
 \section{Conclusion}
 
-The enhanced hierarchical 4-step variable elimination process provides:
+The complete 4-step variable elimination process with no constraint/inequality separation provides:
 \begin{itemize}
-\item \textbf{Complete Mathematical Rigor}: Each step is mathematically justified
-\item \textbf{Transparent Case Differentiation}: Every case shows its defining conditions
-\item \textbf{Systematic Variable Elimination}: Variables are eliminated in specified order
+\item \textbf{Unified Treatment}: All results are inequalities within cases
+\item \textbf{Mathematical Clarity}: No artificial distinction between constraint types
+\item \textbf{Systematic Elimination}: Variables are eliminated in specified order
 \item \textbf{Hierarchical Organization}: Complex case structures are clearly organized
-\item \textbf{Verifiable Results}: Each step can be independently verified
+\item \textbf{Simple Interpretation}: Final result requires all inequalities in one case to be true
 \end{itemize}
 
-The final result characterizes the complete solution space of the original system
-through 1 distinct case(s), each with explicit parameter constraints.
+This elimination process demonstrates that:
+\begin{itemize}
+\item All results are expressed as inequalities within cases
+\item No distinction is made between constraints and inequalities
+\item The final solution requires all inequalities in one of the cases to be true
+\item The 4-step process systematically eliminates each variable
+\end{itemize}
+
+The final result characterizes the complete solution space through
+1 distinct case(s), where each case contains only inequalities
+that must all be satisfied simultaneously.
 
 \end{document}
