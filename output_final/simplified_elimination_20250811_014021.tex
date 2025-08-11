@@ -1,0 +1,111 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\begin{document}
+
+\title{Simplified Variable Elimination Process}
+\author{Hierarchical Case Elimination System}
+\date{\today}
+\maketitle
+
+\section{Elimination of Variable $x1$}
+
+\textbf{Step 1: Isolate variable}
+\textit{Inequalities involving the variable (after isolation):}
+\begin{align}
+& x1 <= (a*(a - b) + x2)/(2*(a - b)) \\
+& x1 >= b + 3*x2**2 \\
+& x1 >= c - x2 \\
+\end{align}
+\textit{Inequalities not involving the variable (unchanged):}
+\begin{align}
+& x2 <= d \\
+\end{align}
+\textit{Complete system after Step 1:}
+\begin{align}
+& x1 <= (a*(a - b) + x2)/(2*(a - b)) \\
+& x1 >= b + 3*x2**2 \\
+& x1 >= c - x2 \\
+& x2 <= d \\
+\end{align}
+\textbf{Step 2: Combine bounds}
+\textit{Combined constraint for the variable:}
+\begin{align}
+& max(Max(b + 3*x2**2, c - x2)) >= x1 <= min((a*(a - b) + x2)/(2*(a - b))) \\
+\end{align}
+\textit{Complete system after Step 2:}
+\begin{align}
+& x2 <= d \\
+\end{align}
+\textbf{Step 3: Remove variable}
+\textit{Elimination constraints:}
+\begin{align}
+& Max(b + 3*x2**2, c - x2) <= (a*(a - b) + x2)/(2*(a - b)) \\
+\end{align}
+\textit{Complete system after removing variable:}
+\begin{align}
+& Max(b + 3*x2**2, c - x2) <= (a*(a - b) + x2)/(2*(a - b)) \\
+& x2 <= d \\
+\end{align}
+\textbf{Step 4: Expand cases}
+\textit{Case 1: Subcase 1.1}
+\begin{align}
+& b + 3*x2**2 >= c - x2 \\
+& b + 3*x2**2 <= (a*(a - b) + x2)/(2*(a - b)) \\
+& x2 <= d \\
+\end{align}
+\textit{Case 2: Subcase 1.2}
+\begin{align}
+& c - x2 >= b + 3*x2**2 \\
+& c - x2 <= (a*(a - b) + x2)/(2*(a - b)) \\
+& x2 <= d \\
+\end{align}
+
+\newpage
+\section{Elimination of Variable $x2$}
+
+\textbf{Step 1: Isolate variable}
+\textit{Inequalities involving the variable (after isolation):}
+\begin{align}
+& x2 <= -b + c - 3*x2**2 \\
+& x2 >= (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) \\
+& x2 <= d \\
+\end{align}
+\textit{Complete system after Step 1:}
+\begin{align}
+& x2 <= -b + c - 3*x2**2 \\
+& x2 >= (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) \\
+& x2 <= d \\
+\end{align}
+\textbf{Step 2: Combine bounds}
+\textit{Combined constraint for the variable:}
+\begin{align}
+& max((-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b)) >= x2 <= min(Min(d, -b + c - 3*x2**2)) \\
+\end{align}
+\textbf{Step 3: Remove variable}
+\textit{Elimination constraints:}
+\begin{align}
+& (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) <= Min(d, -b + c - 3*x2**2) \\
+\end{align}
+\textit{Complete system after removing variable:}
+\begin{align}
+& (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) <= Min(d, -b + c - 3*x2**2) \\
+\end{align}
+\textbf{Step 4: Expand cases}
+\textit{Case 1: Subsubcase 1.2.1}
+\begin{align}
+& -b + c - 3*x2**2 <= d \\
+& (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) <= -b + c - 3*x2**2 \\
+\end{align}
+\textit{Case 2: Subsubcase 1.2.2}
+\begin{align}
+& d <= -b + c - 3*x2**2 \\
+& (-a*(a - b)/2 + c*(a - b) - x2/2)/(a - b) <= d \\
+\end{align}
+
+\newpage
+\end{document}
